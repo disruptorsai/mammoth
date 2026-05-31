@@ -121,7 +121,7 @@ export default function Overview() {
             {METRICS.map((m) => (
               <div
                 key={m.label}
-                className="bg-surface-container border border-outline rounded-full p-6 flex flex-col justify-between hover:border-primary transition-colors group"
+                className="bg-surface-container border border-outline rounded-xl p-6 flex flex-col justify-between hover:border-primary transition-colors group"
               >
                 <div className="flex justify-between items-start">
                   <Icon
@@ -141,7 +141,7 @@ export default function Overview() {
           </div>
 
           {/* Upgrade CTA */}
-          <div className="md:col-span-4 bg-primary-container p-8 rounded-full flex items-center justify-between group cursor-pointer relative overflow-hidden">
+          <div className="md:col-span-4 bg-primary-container p-8 rounded-xl flex items-center justify-between group cursor-pointer relative overflow-hidden">
             <div className="relative z-10">
               <p className="text-on-primary font-bold text-headline-lg">Upgrade Tier</p>
               <p className="text-on-primary-container text-sm opacity-80">
@@ -156,7 +156,7 @@ export default function Overview() {
           </div>
 
           {/* Advertising performance chart */}
-          <div className="md:col-span-8 bg-surface-container border border-outline rounded-3xl p-8 flex flex-col gap-6">
+          <div className="md:col-span-8 bg-surface-container border border-outline rounded-xl p-8 flex flex-col gap-6">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="font-headline-lg text-headline-lg font-bold">
@@ -196,7 +196,7 @@ export default function Overview() {
           </div>
 
           {/* Activity feed */}
-          <div className="md:col-span-4 bg-surface-container border border-outline rounded-3xl p-8 flex flex-col">
+          <div className="md:col-span-4 bg-surface-container border border-outline rounded-xl p-8 flex flex-col">
             <div className="flex items-center justify-between mb-8">
               <h3 className="font-headline-lg text-headline-lg font-bold">Activity Feed</h3>
               <Icon name="refresh" className="text-on-surface-variant cursor-pointer" />
@@ -220,7 +220,7 @@ export default function Overview() {
           </div>
 
           {/* Task queue */}
-          <div className="md:col-span-12 bg-surface-container border border-outline rounded-3xl p-8">
+          <div className="md:col-span-12 bg-surface-container border border-outline rounded-xl p-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
               <div>
                 <h3 className="font-headline-lg text-headline-lg font-bold">The Task Queue</h3>

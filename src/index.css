@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-main: 'Hanken Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: #0e0e0e;
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  user-select: none;
+}
+
+.mono-data,
+.font-mono-supply {
+  font-family: var(--font-mono);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #bf953f 0%, #eed08a 50%, #b38728 100%);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(to right, #bf953f, #eec065);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glow-gold {
+  box-shadow: 0 0 15px rgba(191, 149, 63, 0.2);
+}
+
+/* Premium scrollbars (matches the Stitch exports) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0e0e0e;
+}
+::-webkit-scrollbar-thumb {
+  background: #3e3e3e;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bf953f;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #110e08;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3e3e3e;
+  border-radius: 10px;
+}
+
+.bento-card {
+  background-color: #1a1a1a;
+  border: 1px solid #3e3e3e;
+  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+.bento-card:hover {
+  border-color: #bf953f;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease forwards;
+}

@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+.playwright-mcp
+mc-*.png
+.DS_Store
+npm-debug.log*

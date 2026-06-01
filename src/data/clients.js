@@ -4,8 +4,8 @@
 export const CLIENTS = [
   {
     id: 'atom-fitness',
-    name: 'Atom Fitness',
-    initials: 'AF',
+    name: 'Pinnacle Dental',
+    initials: 'PD',
     health: 82,
     features: { internal: true, seo: true, social: true, ads: true, crm: true },
   },
@@ -25,8 +25,8 @@ export const CLIENTS = [
   },
   {
     id: 'elum-collective',
-    name: 'Elum Collective',
-    initials: 'EC',
+    name: 'Northside Realty',
+    initials: 'NR',
     health: 47,
     features: { internal: true, seo: false, social: true, ads: true, crm: true },
   },

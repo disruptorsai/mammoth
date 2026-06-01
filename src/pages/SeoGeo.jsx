@@ -2,6 +2,9 @@ import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Icon from '../components/Icon'
 
+// The dedicated SEO/GEO web app this page previews and links out to.
+const CONTENT_AGENT_URL = 'https://content-agent.disruptorsmedia.com/'
+
 const TRENDING_SIGNALS = [
   {
     keyword: '"DISRUPTIVE MEDIA"',
@@ -105,6 +108,78 @@ export default function SeoGeo() {
       <TopBar title="SEO / GEO Strategy" searchPlaceholder="Analyze Domain…" onMenu={openNav} />
 
       <div className="p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full space-y-gutter">
+
+        {/* Content Agent launcher — the full SEO/GEO tooling lives in a separate web app.
+            We show an obvious live preview of it that opens the real app in a new tab. */}
+        <div className="bento-card rounded-xl p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl gold-gradient flex items-center justify-center shrink-0">
+                <Icon name="travel_explore" filled className="text-black" />
+              </div>
+              <div>
+                <h3 className="font-headline-lg text-xl text-primary">Content Agent</h3>
+                <p className="text-sm text-on-surface-variant max-w-md">
+                  The full SEO/GEO research and content workspace runs as a dedicated app. The panels
+                  below are your at-a-glance overview — open the agent for the deep tooling.
+                </p>
+              </div>
+            </div>
+            <a
+              href={CONTENT_AGENT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 gold-gradient text-black font-bold px-5 py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-opacity glow-gold"
+            >
+              <Icon name="open_in_new" className="text-lg" />
+              <span>Open Content Agent</span>
+            </a>
+          </div>
+
+          {/* Live website preview — looks like a browser window, opens the real app on click. */}
+          <a
+            href={CONTENT_AGENT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block rounded-xl overflow-hidden border border-outline hover:border-primary transition-colors"
+          >
+            {/* Fake browser chrome / address bar */}
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-container-high border-b border-outline">
+              <div className="flex gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-error/70" />
+                <span className="w-3 h-3 rounded-full bg-primary/70" />
+                <span className="w-3 h-3 rounded-full bg-emerald-400/70" />
+              </div>
+              <div className="flex-1 flex items-center gap-2 bg-background border border-outline rounded-md px-3 py-1 max-w-md">
+                <Icon name="lock" className="text-on-surface-variant text-xs" />
+                <span className="font-label-mono text-xs text-on-surface-variant truncate">
+                  content-agent.disruptorsmedia.com
+                </span>
+              </div>
+              <span className="ml-auto flex items-center gap-1 text-[10px] font-label-mono uppercase tracking-widest text-primary">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
+              </span>
+            </div>
+
+            {/* The live site (non-interactive thumbnail) + hover overlay to open it */}
+            <div className="relative h-72 md:h-96 bg-background overflow-hidden">
+              <iframe
+                src={CONTENT_AGENT_URL}
+                title="Content Agent live preview"
+                loading="lazy"
+                tabIndex={-1}
+                className="absolute top-0 left-0 w-full h-full pointer-events-none"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+              <div className="absolute inset-0 flex items-center justify-center bg-background/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="gold-gradient text-black font-bold px-6 py-3 rounded-full flex items-center gap-2 glow-gold">
+                  <Icon name="open_in_new" className="text-lg" />
+                  Open Content Agent
+                </span>
+              </div>
+            </div>
+          </a>
+        </div>
 
         {/* Hero Metrics Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-gutter">

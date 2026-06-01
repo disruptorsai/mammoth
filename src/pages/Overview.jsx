@@ -1,13 +1,13 @@
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Fab from '../components/Fab'
 import Icon from '../components/Icon'
 import { useClient } from '../context/ClientContext'
 
 const METRICS = [
-  { icon: 'insights', label: 'Social Reach', value: '2.4M', delta: '+12.4%' },
-  { icon: 'track_changes', label: 'Conversion', value: '4.12%', delta: '+0.8%' },
-  { icon: 'monetization_on', label: 'ROAS', value: '6.4x', delta: '-2.1%' },
+  { icon: 'insights', label: 'Social Reach', value: '2.4M', delta: '+12.4%', to: '/social-media' },
+  { icon: 'track_changes', label: 'Conversion', value: '4.12%', delta: '+0.8%', to: '/seo-geo' },
+  { icon: 'monetization_on', label: 'ROAS', value: '6.4x', delta: '-2.1%', to: '/paid-advertising' },
 ]
 
 const CHART_BARS = ['40%', '65%', '85%', '50%', '70%', '95%', '60%']
@@ -89,6 +89,7 @@ function dotClass(tone) {
 export default function Overview() {
   const { openNav } = useOutletContext()
   const { activeClient } = useClient()
+  const navigate = useNavigate()
 
   return (
     <>
@@ -119,9 +120,10 @@ export default function Overview() {
           {/* Metrics */}
           <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-gutter">
             {METRICS.map((m) => (
-              <div
+              <button
                 key={m.label}
-                className="bg-surface-container border border-outline rounded-xl p-6 flex flex-col justify-between hover:border-primary transition-colors group"
+                onClick={() => navigate(m.to)}
+                className="text-left bg-surface-container border border-outline rounded-xl p-6 flex flex-col justify-between hover:border-primary transition-colors group"
               >
                 <div className="flex justify-between items-start">
                   <Icon
@@ -136,12 +138,15 @@ export default function Overview() {
                   </p>
                   <p className="text-headline-lg font-bold mono-data">{m.value}</p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
 
           {/* Upgrade CTA */}
-          <div className="md:col-span-4 bg-primary-container p-8 rounded-xl flex items-center justify-between group cursor-pointer relative overflow-hidden">
+          <button
+            onClick={() => navigate('/subscription')}
+            className="text-left w-full md:col-span-4 bg-primary-container p-8 rounded-xl flex items-center justify-between group cursor-pointer relative overflow-hidden"
+          >
             <div className="relative z-10">
               <p className="text-on-primary font-bold text-headline-lg">Upgrade Tier</p>
               <p className="text-on-primary-container text-sm opacity-80">
@@ -153,7 +158,7 @@ export default function Overview() {
               className="text-4xl text-on-primary group-hover:translate-x-2 transition-transform relative z-10"
             />
             <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-primary rounded-full opacity-20 group-hover:scale-150 transition-transform duration-500" />
-          </div>
+          </button>
 
           {/* Advertising performance chart */}
           <div className="md:col-span-8 bg-surface-container border border-outline rounded-xl p-8 flex flex-col gap-6">
@@ -229,6 +234,12 @@ export default function Overview() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate('/task-management')}
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg border border-primary text-primary text-xs font-bold hover:bg-primary hover:text-black transition-colors"
+                >
+                  <Icon name="view_kanban" className="text-sm" /> View Board
+                </button>
                 <span className="text-xs font-label-mono text-on-surface-variant uppercase">
                   Filter by Status:
                 </span>
@@ -265,7 +276,11 @@ export default function Overview() {
                 </thead>
                 <tbody className="divide-y divide-outline/30">
                   {TASKS.map((t) => (
-                    <tr key={t.id} className="group hover:bg-surface-container-high transition-colors">
+                    <tr
+                      key={t.id}
+                      onClick={() => navigate('/task-management')}
+                      className="group hover:bg-surface-container-high transition-colors cursor-pointer"
+                    >
                       <td className="py-5 px-4 mono-data text-sm opacity-60">{t.id}</td>
                       <td className="py-5 px-4 font-medium">{t.name}</td>
                       <td className="py-5 px-4">
@@ -319,7 +334,7 @@ export default function Overview() {
           </div>
         </div>
       </div>
-      <Fab icon="bolt" title="Launch Quick Action" />
+      <Fab icon="bolt" title="Launch Quick Action" onClick={() => navigate('/task-management')} />
     </>
   )
 }

@@ -9,13 +9,14 @@ Stitch designs in `../stitch_disruptors_media_platform`. Black + gold brand, web
 - **Tailwind CSS v3** — design tokens ported verbatim from the Stitch exports (`tailwind.config.js`)
 - **Supabase** (`@supabase/supabase-js`) — backs the task board
 - **@dnd-kit** — drag-and-drop for the Kanban board
+- **Vista Social** — live channels + content calendar on the Social Media tab (via a dev-server proxy)
 - **Google Material Symbols** + Hanken Grotesk / JetBrains Mono (loaded in `index.html`)
 
 ## Run it
 
 ```bash
 npm install
-cp .env.example .env   # then fill in your Supabase URL + anon key
+cp .env.example .env   # then fill in your Supabase URL + anon key, and the Vista Social API key
 npm run dev      # http://localhost:5173
 npm run build    # production build → dist/
 npm run preview  # preview the build
@@ -59,10 +60,13 @@ src/
 
 ## Current state & next steps
 
-Most views are front-end only with mock data (matching the Stitch mockups). Two are now live:
+Most views are front-end only with mock data (matching the Stitch mockups). Several are now live:
 
 - **Task Management** — a fully interactive Kanban board (smooth `@dnd-kit` drag with precise
   drop positioning, add/edit/delete via a modal), persisted per-client in Supabase.
+- **Social Media** — live channel status + a content calendar (month/week/day) backed by Vista
+  Social. Live data works under `npm run dev` (uses a server-side proxy that injects the API key);
+  set `VISTA_SOCIAL_API_KEY` in `.env`. A production deploy needs an equivalent server-side proxy.
 - **SEO/GEO** — keeps the mock overview UI, with an **Open Content Agent** button that launches
   the separate web app at `https://content-agent.disruptorsmedia.com/` in a new tab.
 

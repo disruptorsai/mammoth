@@ -7,9 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Disruptors Media "Mission Control" ("Mammoth") — an all-in-one agency command center. It is a
 React port of Stitch designs originally exported to `../stitch_disruptors_media_platform`. Every
 page is a faithful port of a specific Stitch screen (see the route table in `README.md`). **Most
-pages are still front-end-only with mock data** (Paid Advertising, Social Media, SEO/GEO,
-Subscription, CRM) — those integrations (Stripe, GHL/HubSpot, Vista Social, WordPress, auth) are
-not wired yet. The exception is **Task Management**, which is backed by Supabase (see below).
+pages are still front-end-only with mock data** (Paid Advertising, SEO/GEO, Subscription, CRM) —
+those integrations (Stripe, GHL/HubSpot, WordPress, auth) are not wired yet. Two pages are live:
+**Task Management** (backed by Supabase) and **Social Media** (backed by Vista Social) — see below.
 
 ## Commands
 
@@ -36,6 +36,22 @@ The task board persists to Supabase via `@supabase/supabase-js`.
   auth-scoped ones when login lands.
 - Data access lives in `src/lib/tasks.js` (CRUD + `positionBetween` for drag ordering); pages
   import from there rather than calling `supabase` directly.
+
+## Vista Social
+
+The Social Media tab pulls live channels and scheduled/published posts from Vista Social.
+
+- **Dev-proxy only**: `vite.config.js` defines a `/vista-mcp` dev-server proxy that forwards to
+  Vista's MCP (JSON-RPC) endpoint and injects `VISTA_SOCIAL_API_KEY` server-side (loaded via
+  `loadEnv` *without* the `VITE_` prefix, so the key never reaches the browser bundle). This means
+  the live integration **works under `npm run dev` only** — a production `vite build` has no proxy,
+  so a real deployment needs an equivalent server-side proxy/function.
+- Client: `src/lib/vistaSocial.js` — MCP client + helpers (`getGroupedProfiles`, `listPosts`,
+  `networkStyle`, `statusStyle`). It calls the same-origin `/vista-mcp` path, never Vista directly.
+- UI: `src/components/ContentCalendar.jsx` (month/week/day calendar, tri-state client multi-select,
+  status filters) and the rewritten `src/pages/SocialMedia.jsx` (live channel status).
+- Without `VISTA_SOCIAL_API_KEY` set, the page degrades gracefully (channels show "Offline",
+  calendar shows an error state) — it does not crash.
 
 ## Architecture
 

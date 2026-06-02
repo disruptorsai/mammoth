@@ -3,9 +3,10 @@ import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Icon from '../components/Icon'
 import ContentCalendar from '../components/ContentCalendar'
+import ContentBoard from '../components/ContentBoard'
 import { getProfiles, networkStyle } from '../lib/vistaSocial'
 
-const SUB_TABS = ['Dashboard', 'Analytics', 'Library', 'Generators']
+const SUB_TABS = ['Dashboard', 'Board', 'Analytics', 'Library', 'Generators']
 
 const CHART_BARS = [
   { height: '60%', hover: '65%' },
@@ -69,6 +70,13 @@ export default function SocialMedia() {
             </span>
           ))}
         </nav>
+
+        {activeTab === 'Board' ? (
+          <div className="bento-grid">
+            <ContentBoard />
+          </div>
+        ) : (
+          <>
 
         {/* Hero stats section */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-gutter">
@@ -379,6 +387,8 @@ export default function SocialMedia() {
           </div>
 
         </div>
+          </>
+        )}
       </div>
     </>
   )

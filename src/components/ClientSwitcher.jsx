@@ -9,9 +9,23 @@ function healthColor(score) {
 }
 
 export default function ClientSwitcher() {
-  const { clients, activeClient, setActiveClient } = useClient()
+  const { clients, activeClient, setActiveClient, canSwitch } = useClient()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+
+  // Client users are locked to their own workspace — show a static badge.
+  if (!canSwitch) {
+    return (
+      <div className="flex items-center gap-2 bg-surface-container border border-outline rounded-full pl-2 pr-3 py-1.5">
+        <span className="w-7 h-7 rounded-full bg-primary/15 border border-primary/40 text-primary text-xs font-bold flex items-center justify-center">
+          {activeClient.initials}
+        </span>
+        <span className="hidden sm:block text-sm font-medium max-w-[120px] truncate">
+          {activeClient.name}
+        </span>
+      </div>
+    )
+  }
 
   useEffect(() => {
     function handler(e) {

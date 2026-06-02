@@ -2,6 +2,48 @@ import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Icon from '../components/Icon'
 import Fab from '../components/Fab'
+import { useClient } from '../context/ClientContext'
+
+// Where the "Schedule the call now" CTA sends prospects. Swap for the real booking link.
+const BOOKING_URL = 'https://calendly.com/disruptorsmedia/discovery'
+
+// Shown instead of the analytics when a client has no paid-ads package
+// (features.ads === false). Tab stays visible; data is gated behind a CTA.
+function PaidAdsGate({ client }) {
+  return (
+    <div className="p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full flex-1 flex items-center justify-center">
+      <div className="bento-card rounded-xl p-10 md:p-14 max-w-xl w-full text-center relative overflow-hidden">
+        <div className="absolute -right-10 -top-10 opacity-10">
+          <Icon name="ads_click" className="text-[160px]" />
+        </div>
+        <div className="relative z-10 flex flex-col items-center gap-5">
+          <div className="w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center">
+            <Icon name="lock" filled className="text-black text-3xl" />
+          </div>
+          <div>
+            <h2 className="font-headline-lg text-2xl text-primary mb-2">Paid Advertising isn’t in {client.name}’s plan yet</h2>
+            <p className="text-on-surface-variant max-w-md mx-auto">
+              Unlock live ad analytics, the FBS manager, AI copy, and cross-channel scaling.
+              Let’s map out a paid-media strategy built for your goals.
+            </p>
+          </div>
+          <a
+            href={BOOKING_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="gold-gradient text-black font-bold px-7 py-3.5 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity glow-gold"
+          >
+            <Icon name="calendar_month" className="text-lg" />
+            Schedule the call now
+          </a>
+          <p className="text-xs font-label-mono text-on-surface-variant uppercase tracking-widest">
+            Already have a package? Ask your strategist to enable it.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const CAMPAIGNS = [
   {
@@ -43,6 +85,17 @@ const CHART_HEIGHTS = ['30%', '45%', '60%', '55%', '80%', '95%', '75%', '65%', '
 
 export default function PaidAdvertising() {
   const { openNav } = useOutletContext()
+  const { activeClient } = useClient()
+
+  // Gate the tab for clients without a paid-ads package (per the June 02 review).
+  if (!activeClient.features.ads) {
+    return (
+      <>
+        <TopBar title="Paid Advertising" searchPlaceholder="Search Analytics…" onMenu={openNav} />
+        <PaidAdsGate client={activeClient} />
+      </>
+    )
+  }
 
   return (
     <>

@@ -59,6 +59,13 @@ function formatDue(value) {
   return `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}`
 }
 
+// First+last initials for an assignee avatar (e.g. "Bryan Lee" -> "BL").
+function initials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return ''
+  return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
+}
+
 // YYYY-MM-DD for today + `days`, in local time (avoids the UTC off-by-one).
 function isoOffset(days) {
   const d = new Date()
@@ -107,18 +114,26 @@ function CardView({ task, dragging = false, listeners, attributes, onOpen }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between mt-auto">
-        {task.due_label ? (
-          <div className="flex items-center gap-1 text-on-surface-variant text-[11px] font-label-mono">
-            <Icon name="event" className="text-sm" />
-            <span>{formatDue(task.due_label)}</span>
-          </div>
-        ) : (
-          <span />
-        )}
+      <div className="flex items-center justify-between mt-auto gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {task.assignee && (
+            <div className="flex items-center gap-1.5 min-w-0" title={`Assignee: ${task.assignee}`}>
+              <span className="w-5 h-5 rounded-full bg-primary/15 border border-primary/40 text-primary text-[9px] font-bold flex items-center justify-center shrink-0">
+                {initials(task.assignee)}
+              </span>
+              <span className="text-[11px] text-on-surface-variant truncate">{task.assignee}</span>
+            </div>
+          )}
+          {task.due_label && (
+            <div className="flex items-center gap-1 text-on-surface-variant text-[11px] font-label-mono shrink-0">
+              <Icon name="event" className="text-sm" />
+              <span>{formatDue(task.due_label)}</span>
+            </div>
+          )}
+        </div>
         <Icon
           name="edit"
-          className="text-on-surface-variant text-sm opacity-0 group-hover:opacity-100 transition-opacity"
+          className="text-on-surface-variant text-sm opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
         />
       </div>
     </div>
@@ -198,6 +213,7 @@ function TaskModal({ task, onClose, onSave, onDelete }) {
     title: task.title ?? '',
     description: task.description ?? '',
     tag: task.tag ?? '',
+    assignee: task.assignee ?? '',
     due_label: task.due_label ?? '',
     progress: task.progress ?? '',
     column_key: task.column_key ?? 'todo',
@@ -283,15 +299,26 @@ function TaskModal({ task, onClose, onSave, onDelete }) {
           </div>
         </div>
 
-        <label className="block">
-          <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">Tag</span>
-          <input
-            value={form.tag}
-            onChange={set('tag')}
-            placeholder="e.g. Campaign"
-            className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-          />
-        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block">
+            <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">Tag</span>
+            <input
+              value={form.tag}
+              onChange={set('tag')}
+              placeholder="e.g. Campaign"
+              className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">Assignee</span>
+            <input
+              value={form.assignee}
+              onChange={set('assignee')}
+              placeholder="e.g. Bryan"
+              className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+            />
+          </label>
+        </div>
 
         {/* Due date — quick chips cover the common cases; calendar only for custom dates */}
         <div>

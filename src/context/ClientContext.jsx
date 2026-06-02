@@ -1,49 +1,67 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { CLIENTS } from '../data/clients'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { fetchClients, createClient } from '../lib/clients'
 import { useAuth } from './AuthContext'
+import Icon from '../components/Icon'
 
 const ClientContext = createContext(null)
 
+// Safe placeholder so pages never crash on a missing active client.
+const FALLBACK = { id: '', name: '—', initials: '—', health: 0, features: { internal: true } }
+
 export function ClientProvider({ children }) {
   const { isAdmin, profile } = useAuth()
+  const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [activeId, setActiveId] = useState(null)
 
-  // Admins see every client; client users are locked to their own.
-  const clients = useMemo(() => {
-    if (isAdmin) return CLIENTS
-    const own = CLIENTS.filter((c) => c.id === profile?.client_id)
-    if (own.length) return own
-    // Profile points at a client_id not in the local roster — synthesize a stub
-    // so the app still scopes data to it.
-    if (profile?.client_id) {
-      return [
-        {
-          id: profile.client_id,
-          name: profile.client_id,
-          initials: profile.client_id.slice(0, 2).toUpperCase(),
-          health: 0,
-          features: { internal: true },
-        },
-      ]
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      let rows = await fetchClients()
+      // RLS already scopes client users to their own row; filter defensively too.
+      if (!isAdmin && profile?.client_id) rows = rows.filter((c) => c.id === profile.client_id)
+      setClients(rows)
+      setActiveId((prev) => (rows.some((c) => c.id === prev) ? prev : rows[0]?.id ?? null))
+    } catch {
+      setClients([])
+    } finally {
+      setLoading(false)
     }
-    return CLIENTS.slice(0, 1)
   }, [isAdmin, profile?.client_id])
 
-  const [activeId, setActiveId] = useState(clients[0]?.id)
-
-  // Keep the active client valid as the visible set changes.
   useEffect(() => {
-    if (!clients.some((c) => c.id === activeId)) setActiveId(clients[0]?.id)
-  }, [clients, activeId])
+    load()
+  }, [load])
+
+  const addClient = useCallback(
+    async (fields) => {
+      const created = await createClient(fields)
+      await load()
+      setActiveId(created.id)
+      return created
+    },
+    [load],
+  )
 
   const value = useMemo(() => {
-    const activeClient = clients.find((c) => c.id === activeId) ?? clients[0]
+    const activeClient = clients.find((c) => c.id === activeId) ?? clients[0] ?? FALLBACK
     return {
       clients,
       activeClient,
       setActiveClient: setActiveId,
-      canSwitch: isAdmin && clients.length > 1,
+      canSwitch: isAdmin,
+      addClient,
+      reload: load,
     }
-  }, [clients, activeId, isAdmin])
+  }, [clients, activeId, isAdmin, addClient, load])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Icon name="progress_activity" className="animate-spin text-primary text-4xl" />
+      </div>
+    )
+  }
 
   return <ClientContext.Provider value={value}>{children}</ClientContext.Provider>
 }

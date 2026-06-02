@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
 import { useClient } from '../context/ClientContext'
+import NewClientModal from './NewClientModal'
 
 function healthColor(score) {
   if (score >= 75) return 'text-emerald-400'
@@ -11,7 +12,16 @@ function healthColor(score) {
 export default function ClientSwitcher() {
   const { clients, activeClient, setActiveClient, canSwitch } = useClient()
   const [open, setOpen] = useState(false)
+  const [showNew, setShowNew] = useState(false)
   const ref = useRef(null)
+
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // Client users are locked to their own workspace — show a static badge.
   if (!canSwitch) {
@@ -26,14 +36,6 @@ export default function ClientSwitcher() {
       </div>
     )
   }
-
-  useEffect(() => {
-    function handler(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   return (
     <div className="relative" ref={ref}>
@@ -76,14 +78,26 @@ export default function ClientSwitcher() {
                     Health {c.health}
                   </span>
                 </span>
-                {c.id === activeClient.id && (
-                  <Icon name="check" className="text-primary text-base" />
-                )}
+                {c.id === activeClient.id && <Icon name="check" className="text-primary text-base" />}
               </button>
             ))}
+            {clients.length === 0 && (
+              <p className="px-4 py-4 text-sm text-on-surface-variant text-center">No clients yet.</p>
+            )}
           </div>
+          <button
+            onClick={() => {
+              setShowNew(true)
+              setOpen(false)
+            }}
+            className="w-full flex items-center gap-2 px-4 py-3 text-left text-primary font-medium border-t border-outline hover:bg-surface-variant transition-colors"
+          >
+            <Icon name="add" className="text-base" /> New Client
+          </button>
         </div>
       )}
+
+      {showNew && <NewClientModal onClose={() => setShowNew(false)} />}
     </div>
   )
 }

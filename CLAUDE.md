@@ -44,8 +44,9 @@ The Social Media tab pulls live channels and scheduled/published posts from Vist
 - **Dev-proxy only**: `vite.config.js` defines a `/vista-mcp` dev-server proxy that forwards to
   Vista's MCP (JSON-RPC) endpoint and injects `VISTA_SOCIAL_API_KEY` server-side (loaded via
   `loadEnv` *without* the `VITE_` prefix, so the key never reaches the browser bundle). This means
-  the live integration **works under `npm run dev` only** — a production `vite build` has no proxy,
-  so a real deployment needs an equivalent server-side proxy/function.
+  the dev integration works under `npm run dev`. For production, `api/vista-mcp.js` is a Vercel
+  serverless function that does the same injection (the `/vista-mcp` path is routed to it via
+  `vercel.json`), so the deployed site needs `VISTA_SOCIAL_API_KEY` set in the Vercel project env.
 - Client: `src/lib/vistaSocial.js` — MCP client + helpers (`getGroupedProfiles`, `listPosts`,
   `networkStyle`, `statusStyle`). It calls the same-origin `/vista-mcp` path, never Vista directly.
 - UI: `src/components/ContentCalendar.jsx` (month/week/day calendar, tri-state client multi-select,

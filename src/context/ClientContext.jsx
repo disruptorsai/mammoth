@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { fetchClients, createClient } from '../lib/clients'
 import { useAuth } from './AuthContext'
 import Icon from '../components/Icon'
+import EmptyRosterGate from '../components/EmptyRosterGate'
 
 const ClientContext = createContext(null)
 
@@ -63,7 +64,11 @@ export function ClientProvider({ children }) {
     )
   }
 
-  return <ClientContext.Provider value={value}>{children}</ClientContext.Provider>
+  return (
+    <ClientContext.Provider value={value}>
+      {clients.length === 0 ? <EmptyRosterGate /> : children}
+    </ClientContext.Provider>
+  )
 }
 
 export function useClient() {

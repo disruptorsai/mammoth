@@ -31,12 +31,17 @@ returns text language sql security definer stable set search_path = public as $$
   select client_id from public.profiles where id = auth.uid()
 $$;
 
--- 3) Auto-create a profile row when a user is added (default role 'client').
+-- 3) Auto-create a profile row when a user is added. The FIRST account becomes
+--    admin (so a fresh install isn't locked out); everyone after defaults to 'client'.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.profiles (id, email, role)
-  values (new.id, new.email, 'client')
+  values (
+    new.id,
+    new.email,
+    case when exists (select 1 from public.profiles where role = 'admin') then 'client' else 'admin' end
+  )
   on conflict (id) do nothing;
   return new;
 end;

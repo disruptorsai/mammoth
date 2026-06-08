@@ -26,8 +26,8 @@ create policy "clients delete" on public.clients for delete using (public.is_adm
 
 -- Seed existing clients (idempotent).
 insert into public.clients (id, name, initials, health, features) values
-  ('atom-fitness',    'Pinnacle Dental',  'PD', 82, '{"internal":true,"seo":true,"social":true,"ads":true,"crm":true}'::jsonb),
+  ('pinnacle-dental', 'Pinnacle Dental',  'PD', 82, '{"internal":true,"seo":true,"social":true,"ads":true,"crm":true}'::jsonb),
   ('precision-solar', 'Precision Solar',  'PS', 64, '{"internal":true,"seo":true,"social":false,"ads":true,"crm":true}'::jsonb),
   ('vanguard-media',  'Vanguard Media',   'VM', 91, '{"internal":true,"seo":true,"social":true,"ads":false,"crm":false}'::jsonb),
-  ('elum-collective', 'Northside Realty', 'NR', 47, '{"internal":true,"seo":false,"social":true,"ads":true,"crm":true}'::jsonb)
+  ('northside-realty','Northside Realty', 'NR', 47, '{"internal":true,"seo":false,"social":true,"ads":true,"crm":true}'::jsonb)
 on conflict (id) do nothing;

@@ -1,6 +1,7 @@
 import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Icon from '../components/Icon'
+import { useToast } from '../components/Toast'
 import { useClient } from '../context/ClientContext'
 
 // Paywall / token billing. The call described this as a placeholder for now:
@@ -41,6 +42,7 @@ const TOKEN_PACKS = [
 export default function Subscription() {
   const { openNav } = useOutletContext()
   const { activeClient } = useClient()
+  const { show, node: toast } = useToast()
   const used = 4.2
   const total = 6
   const pct = Math.round((used / total) * 100)
@@ -95,7 +97,10 @@ export default function Subscription() {
               <Field icon="call" label="Phone" value="+1 (801) 555-0142" />
               <Field icon="credit_card" label="Payment" value="Visa •••• 4242" />
             </div>
-            <button className="mt-auto w-full py-3 border border-primary text-primary font-bold rounded-xl hover:bg-primary hover:text-black transition-all">
+            <button
+              onClick={() => show('Stripe billing portal isn’t connected yet.', 'credit_card')}
+              className="mt-auto w-full py-3 border border-primary text-primary font-bold rounded-xl hover:bg-primary hover:text-black transition-all"
+            >
               Manage in Stripe
             </button>
           </div>
@@ -129,7 +134,10 @@ export default function Subscription() {
                 <p className="text-3xl font-bold mono-data mt-2">{p.tokens}</p>
                 <p className="text-on-surface-variant text-xs mb-4">tokens</p>
                 <p className="text-2xl font-bold text-primary mb-4">{p.price}</p>
-                <button className="w-full py-2.5 gold-gradient text-black font-bold rounded-lg hover:opacity-90 transition-opacity">
+                <button
+                  onClick={() => show(`Checkout for ${p.tokens} tokens (${p.price}) — Stripe coming soon.`, 'shopping_cart')}
+                  className="w-full py-2.5 gold-gradient text-black font-bold rounded-lg hover:opacity-90 transition-opacity"
+                >
                   Purchase
                 </button>
               </div>
@@ -172,6 +180,11 @@ export default function Subscription() {
                   ))}
                 </ul>
                 <button
+                  onClick={
+                    plan.active
+                      ? undefined
+                      : () => show(`Switching to ${plan.name} — billing changes coming soon.`, 'workspace_premium')
+                  }
                   className={`w-full py-3 rounded-xl font-bold transition-all ${
                     plan.active
                       ? 'bg-surface-variant text-on-surface-variant cursor-default'
@@ -185,6 +198,7 @@ export default function Subscription() {
           </div>
         </section>
       </div>
+      {toast}
     </>
   )
 }

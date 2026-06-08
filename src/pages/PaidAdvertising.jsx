@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Icon from '../components/Icon'
 import Fab from '../components/Fab'
+import { useToast } from '../components/Toast'
 import { useClient } from '../context/ClientContext'
 
 // Where the "Schedule the call now" CTA sends prospects. Swap for the real booking link.
@@ -83,9 +85,14 @@ const CAMPAIGNS = [
 
 const CHART_HEIGHTS = ['30%', '45%', '60%', '55%', '80%', '95%', '75%', '65%', '85%', '100%', '90%']
 
+const SAMPLE_COPY =
+  "Stop playing safe in a market that's evolving every hour. Your strategy isn't just old—it's obsolete. Join the disruptors..."
+
 export default function PaidAdvertising() {
   const { openNav } = useOutletContext()
   const { activeClient } = useClient()
+  const { show, node: toast } = useToast()
+  const [scaleView, setScaleView] = useState('7D View')
 
   // Gate the tab for clients without a paid-ads package (per the June 02 review).
   if (!activeClient.features.ads) {
@@ -196,7 +203,10 @@ export default function PaidAdvertising() {
                   </div>
                 </div>
               </div>
-              <button className="mt-6 w-full py-2 border border-primary text-primary font-bold rounded-lg hover:bg-primary hover:text-black transition-all duration-300 font-body-md">
+              <button
+                onClick={() => show('Re-syncing ad accounts — connector coming soon.', 'sync')}
+                className="mt-6 w-full py-2 border border-primary text-primary font-bold rounded-lg hover:bg-primary hover:text-black transition-all duration-300 font-body-md"
+              >
                 Re-Sync Nodes
               </button>
             </div>
@@ -243,7 +253,10 @@ export default function PaidAdvertising() {
                   </select>
                 </div>
               </div>
-              <button className="w-full py-4 bg-primary text-black font-bold rounded-lg shadow-[0_4px_20px_rgba(191,149,63,0.3)] hover:-translate-y-1 transition-all">
+              <button
+                onClick={() => show('AI copy generation — coming soon.', 'auto_awesome')}
+                className="w-full py-4 bg-primary text-black font-bold rounded-lg shadow-[0_4px_20px_rgba(191,149,63,0.3)] hover:-translate-y-1 transition-all"
+              >
                 Generate Copy Assets
               </button>
             </div>
@@ -252,10 +265,18 @@ export default function PaidAdvertising() {
             <div className="mt-8 border-t border-outline pt-6">
               <div className="flex justify-between items-center mb-4">
                 <p className="font-mono-supply text-label-mono text-primary text-xs">LATEST OUTPUT</p>
-                <Icon name="content_copy" className="text-on-surface-variant cursor-pointer hover:text-white" />
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(SAMPLE_COPY)
+                    show('Copied to clipboard.', 'content_copy')
+                  }}
+                  aria-label="Copy output"
+                >
+                  <Icon name="content_copy" className="text-on-surface-variant cursor-pointer hover:text-white" />
+                </button>
               </div>
               <div className="p-4 bg-background border border-outline rounded-lg italic text-on-surface-variant font-body-md">
-                "Stop playing safe in a market that's evolving every hour. Your strategy isn't just old—it's obsolete. Join the disruptors..."
+                {SAMPLE_COPY}
               </div>
             </div>
           </div>
@@ -265,8 +286,17 @@ export default function PaidAdvertising() {
             <div className="flex justify-between items-center mb-8">
               <h3 className="font-headline-lg text-headline-lg font-bold">Cross-Channel Scaling</h3>
               <div className="flex gap-2">
-                <span className="px-3 py-1 bg-background border border-outline rounded-full text-xs font-mono-supply text-primary">7D View</span>
-                <span className="px-3 py-1 bg-surface-variant border border-outline rounded-full text-xs font-mono-supply text-on-surface-variant">30D View</span>
+                {['7D View', '30D View'].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setScaleView(v)}
+                    className={`px-3 py-1 border border-outline rounded-full text-xs font-mono-supply transition-colors ${
+                      scaleView === v ? 'bg-background text-primary' : 'bg-surface-variant text-on-surface-variant hover:text-primary'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -382,7 +412,8 @@ export default function PaidAdvertising() {
 
       </div>
 
-      <Fab icon="add" />
+      <Fab icon="add" title="New campaign" onClick={() => show('New campaign — coming soon.', 'add')} />
+      {toast}
     </>
   )
 }

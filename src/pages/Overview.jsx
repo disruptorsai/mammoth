@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Fab from '../components/Fab'
 import Icon from '../components/Icon'
+import { useToast } from '../components/Toast'
 import { useClient } from '../context/ClientContext'
 
 const METRICS = [
@@ -10,8 +12,16 @@ const METRICS = [
   { icon: 'monetization_on', label: 'ROAS', value: '6.4x', delta: '-2.1%', to: '/paid-advertising' },
 ]
 
-const CHART_BARS = ['40%', '65%', '85%', '50%', '70%', '95%', '60%']
-const CHART_VALUES = ['$12k', '$18k', '$24k', '$15k', '$19k', '$28k', '$17k']
+const CHART_DATA = {
+  '7D': {
+    bars: ['40%', '65%', '85%', '50%', '70%', '95%', '60%'],
+    values: ['$12k', '$18k', '$24k', '$15k', '$19k', '$28k', '$17k'],
+  },
+  '30D': {
+    bars: ['55%', '45%', '70%', '80%', '60%', '90%', '100%'],
+    values: ['$48k', '$41k', '$62k', '$71k', '$58k', '$83k', '$96k'],
+  },
+}
 
 const ACTIVITY = [
   {
@@ -90,6 +100,18 @@ export default function Overview() {
   const { openNav } = useOutletContext()
   const { activeClient } = useClient()
   const navigate = useNavigate()
+  const { show, node: toast } = useToast()
+  const [chartRange, setChartRange] = useState('7D')
+  const [taskFilter, setTaskFilter] = useState('All')
+
+  const { bars: chartBars, values: chartValues } = CHART_DATA[chartRange]
+  const visibleTasks = TASKS.filter((t) =>
+    taskFilter === 'All'
+      ? true
+      : taskFilter === 'Running'
+        ? t.running
+        : !t.running, // Pending
+  )
 
   return (
     <>
@@ -172,12 +194,19 @@ export default function Overview() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <button className="px-4 py-1 text-xs font-label-mono rounded-full border border-primary text-primary">
-                  7D
-                </button>
-                <button className="px-4 py-1 text-xs font-label-mono rounded-full border border-outline text-on-surface-variant hover:border-primary transition-colors">
-                  30D
-                </button>
+                {['7D', '30D'].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setChartRange(r)}
+                    className={`px-4 py-1 text-xs font-label-mono rounded-full border transition-colors ${
+                      chartRange === r
+                        ? 'border-primary text-primary'
+                        : 'border-outline text-on-surface-variant hover:border-primary'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
               </div>
             </div>
             <div className="flex-1 min-h-[260px] flex items-end gap-3 px-4 py-6 border-b border-l border-outline/30 relative">
@@ -186,14 +215,14 @@ export default function Overview() {
                   <div key={i} className="w-full border-t border-white" />
                 ))}
               </div>
-              {CHART_BARS.map((h, i) => (
+              {chartBars.map((h, i) => (
                 <div
                   key={i}
                   className="flex-1 bg-primary/20 hover:bg-primary transition-colors rounded-t-lg group relative"
                   style={{ height: h }}
                 >
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity mono-data text-xs text-primary font-bold">
-                    {CHART_VALUES[i]}
+                    {chartValues[i]}
                   </div>
                 </div>
               ))}
@@ -204,7 +233,9 @@ export default function Overview() {
           <div className="md:col-span-4 bg-surface-container border border-outline rounded-xl p-8 flex flex-col">
             <div className="flex items-center justify-between mb-8">
               <h3 className="font-headline-lg text-headline-lg font-bold">Activity Feed</h3>
-              <Icon name="refresh" className="text-on-surface-variant cursor-pointer" />
+              <button onClick={() => show('Activity feed refreshed.', 'refresh')} aria-label="Refresh activity">
+                <Icon name="refresh" className="text-on-surface-variant cursor-pointer hover:text-primary transition-colors" />
+              </button>
             </div>
             <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2">
               {ACTIVITY.map((a, i) => (
@@ -244,15 +275,19 @@ export default function Overview() {
                   Filter by Status:
                 </span>
                 <div className="flex bg-surface-container-low border border-outline p-1 rounded-lg">
-                  <button className="px-3 py-1 text-xs font-label-mono bg-surface-variant rounded-md text-primary">
-                    All
-                  </button>
-                  <button className="px-3 py-1 text-xs font-label-mono hover:text-primary transition-colors">
-                    Pending
-                  </button>
-                  <button className="px-3 py-1 text-xs font-label-mono hover:text-primary transition-colors">
-                    Running
-                  </button>
+                  {['All', 'Pending', 'Running'].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setTaskFilter(f)}
+                      className={`px-3 py-1 text-xs font-label-mono rounded-md transition-colors ${
+                        taskFilter === f
+                          ? 'bg-surface-variant text-primary'
+                          : 'hover:text-primary'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -275,7 +310,7 @@ export default function Overview() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline/30">
-                  {TASKS.map((t) => (
+                  {visibleTasks.map((t) => (
                     <tr
                       key={t.id}
                       onClick={() => navigate('/task-management')}
@@ -335,6 +370,7 @@ export default function Overview() {
         </div>
       </div>
       <Fab icon="bolt" title="Launch Quick Action" onClick={() => navigate('/task-management')} />
+      {toast}
     </>
   )
 }

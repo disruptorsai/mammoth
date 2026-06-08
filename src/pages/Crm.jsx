@@ -2,6 +2,7 @@ import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Fab from '../components/Fab'
 import Icon from '../components/Icon'
+import { useToast } from '../components/Toast'
 
 const INTEGRATIONS = [
   {
@@ -140,6 +141,7 @@ const INTERACTIONS = [
 
 export default function Crm() {
   const { openNav } = useOutletContext()
+  const { show, node: toast } = useToast()
 
   return (
     <>
@@ -171,7 +173,10 @@ export default function Crm() {
                   <span className="text-xs text-on-surface-variant font-label-mono">
                     {integration.lastSync}
                   </span>
-                  <button className="text-primary hover:underline text-sm font-bold transition-all">
+                  <button
+                    onClick={() => show(`Configure ${integration.name} — integration coming soon.`, 'settings')}
+                    className="text-primary hover:underline text-sm font-bold transition-all"
+                  >
                     {integration.configLabel}
                   </button>
                 </div>
@@ -192,10 +197,16 @@ export default function Crm() {
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-headline-lg text-primary">Consolidated Pipeline</h4>
                 <div className="flex gap-2">
-                  <button className="p-2 border border-outline rounded hover:bg-surface-variant transition-colors">
+                  <button
+                    onClick={() => show('Pipeline filters coming soon.', 'filter_list')}
+                    className="p-2 border border-outline rounded hover:bg-surface-variant transition-colors"
+                  >
                     <Icon name="filter_list" className="text-sm" />
                   </button>
-                  <button className="p-2 border border-outline rounded hover:bg-surface-variant transition-colors">
+                  <button
+                    onClick={() => show('Pipeline export coming soon.', 'download')}
+                    className="p-2 border border-outline rounded hover:bg-surface-variant transition-colors"
+                  >
                     <Icon name="download" className="text-sm" />
                   </button>
                 </div>
@@ -220,6 +231,7 @@ export default function Crm() {
                     {col.cards.map((card) => (
                       <div
                         key={card.name}
+                        onClick={() => show(`${card.name} · ${card.source} · ${card.amount}`, 'person')}
                         className={`bg-surface-container-low border border-outline p-4 rounded-xl space-y-3 hover:scale-[1.02] transition-transform cursor-pointer group${card.opacity ? ` ${card.opacity}` : ''}`}
                       >
                         <div className="flex justify-between">
@@ -299,7 +311,10 @@ export default function Crm() {
               </div>
 
               <div className="p-4 border-t border-outline">
-                <button className="w-full py-2 text-xs font-bold text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center gap-1">
+                <button
+                  onClick={() => show('Full interaction history coming soon.', 'history')}
+                  className="w-full py-2 text-xs font-bold text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center gap-1"
+                >
                   View Full History <Icon name="arrow_forward" className="text-sm" />
                 </button>
               </div>
@@ -309,7 +324,8 @@ export default function Crm() {
         </div>
       </section>
 
-      <Fab icon="add" />
+      <Fab icon="add" title="New lead" onClick={() => show('Add a lead — coming soon.', 'add')} />
+      {toast}
     </>
   )
 }

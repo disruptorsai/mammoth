@@ -31,9 +31,15 @@ No longer a pure mock — the app now has **real auth + a Supabase backend**. Bu
 - **Auth:** email/password, accounts are **admin-created** (no public sign-up).
 - **Roles** (`profiles.role`): `admin` sees all clients + the switcher; `client` is locked to their own `client_id`.
 - **Per-client RLS** on `tasks`, `content_posts`, `clients` — `is_admin() OR client_id = my_client_id()`.
-- **Clients live in the DB** (`clients` table), not in code. Roster starts **empty**; admins add via
-  **"+ New Client"** in the sidebar client switcher (creates the workspace; the login is still added in
-  Supabase and mapped to the new `client_id`).
+- **Clients live in the DB** (`clients` table), not in code. Roster starts **empty**; admins add them
+  **in-app** via **"+ New Client"** in the sidebar client switcher — a form (name + module toggles +
+  health) that writes a row instantly, no code/seed edits. (The client's login is still created in
+  Supabase and mapped to the new `client_id`.)
+- **Empty-roster gate:** with zero clients the app doesn't render a blank workspace — admins get a
+  "Create your first client" screen (same form); client users get a "no workspace yet" notice.
+- **Where a client's data comes from:** entered in-app (task/content boards → Supabase, per client)
+  or synced from that client's connected tools (Vista now; ads/CRM/Stripe later). Overview/Paid-Ads/
+  CRM/Subscription numbers are placeholders until those integrations are wired.
 - Migrations (run in order in the SQL Editor): `0001_tasks` · `0002_tasks_assignee` · `0003_content_board` ·
   `0004_auth` · `0005_clients`.
 
@@ -90,6 +96,7 @@ supabase/migrations/         0001–0005
 - 2026-06-02 — Clients moved to a DB table + in-app "New Client"; Vista production serverless proxy.
 - 2026-06-04 — Made remaining pages interactive (shared `Toast` for unwired actions); added ABOUT.md.
 - 2026-06-09 — **Roster starts empty** (removed seed); **client switcher moved into the sidebar** (between brand and nav).
+- 2026-06-09 — **Create-a-client-first gate**: empty roster prompts admins to add a client before the app loads. Confirmed clients are core to the model (data is scoped per client); admins add clients in-app via the switcher form.
 
 ## Open questions
 

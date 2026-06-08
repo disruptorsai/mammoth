@@ -1,5 +1,4 @@
 import Icon from './Icon'
-import ClientSwitcher from './ClientSwitcher'
 
 const AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCNFExjzuHE3meAeN16DL0CEdvJCMJCBhacGY1mfphag047zDbEb43XaSsucWxXGySQ199TSk4pjdKmxit_KXe1nuSJCLLULuIMDZaqLtLdxOhK9IbSC-ZeGs5ABhsJ9G8MshwG_UOsIN0NAh78Lf8aBRpGDuXX_cY4a1Q4vQr-mIbD3BccHf0iXrjS7gJfPwQKk-7G0ECLnMc60bAq6Jk8N3wpWwQNPi4fn3akAbPAkcEKGFuKFUKX9B1kGBwK4ikRakIirNsxILqp'
@@ -41,7 +40,6 @@ export default function TopBar({ title, searchPlaceholder = 'Global Search…', 
             name="settings"
             className="text-on-surface-variant cursor-pointer hover:text-primary transition-colors hidden sm:inline"
           />
-          <ClientSwitcher />
           <div className="w-8 h-8 rounded-full overflow-hidden border border-primary cursor-pointer active:opacity-80 shrink-0">
             <img alt="User profile" className="w-full h-full object-cover" src={AVATAR} />
           </div>

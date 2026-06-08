@@ -1,6 +1,6 @@
 -- Move the client roster into the DB so admins can add clients from the app.
--- Run AFTER 0004 (uses is_admin() / my_client_id()). Seeds the existing four
--- clients with their current ids so tasks/content/profiles stay linked.
+-- Run AFTER 0004 (uses is_admin() / my_client_id()). Starts EMPTY — add clients
+-- in-app via the "+ New Client" form in the sidebar client switcher.
 
 create table if not exists public.clients (
   id         text primary key,                 -- slug; the canonical client_id everywhere
@@ -24,10 +24,4 @@ create policy "clients insert" on public.clients for insert with check (public.i
 create policy "clients update" on public.clients for update using (public.is_admin()) with check (public.is_admin());
 create policy "clients delete" on public.clients for delete using (public.is_admin());
 
--- Seed existing clients (idempotent).
-insert into public.clients (id, name, initials, health, features) values
-  ('pinnacle-dental', 'Pinnacle Dental',  'PD', 82, '{"internal":true,"seo":true,"social":true,"ads":true,"crm":true}'::jsonb),
-  ('precision-solar', 'Precision Solar',  'PS', 64, '{"internal":true,"seo":true,"social":false,"ads":true,"crm":true}'::jsonb),
-  ('vanguard-media',  'Vanguard Media',   'VM', 91, '{"internal":true,"seo":true,"social":true,"ads":false,"crm":false}'::jsonb),
-  ('northside-realty','Northside Realty', 'NR', 47, '{"internal":true,"seo":false,"social":true,"ads":true,"crm":true}'::jsonb)
-on conflict (id) do nothing;
+-- No seed: start with an empty roster and add clients from the app.

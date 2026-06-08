@@ -26,13 +26,11 @@ export default function ClientSwitcher() {
   // Client users are locked to their own workspace — show a static badge.
   if (!canSwitch) {
     return (
-      <div className="flex items-center gap-2 bg-surface-container border border-outline rounded-full pl-2 pr-3 py-1.5">
-        <span className="w-7 h-7 rounded-full bg-primary/15 border border-primary/40 text-primary text-xs font-bold flex items-center justify-center">
+      <div className="flex items-center gap-2 w-full bg-surface-container border border-outline rounded-xl px-3 py-2">
+        <span className="w-7 h-7 rounded-full bg-primary/15 border border-primary/40 text-primary text-xs font-bold flex items-center justify-center shrink-0">
           {activeClient.initials}
         </span>
-        <span className="hidden sm:block text-sm font-medium max-w-[120px] truncate">
-          {activeClient.name}
-        </span>
+        <span className="text-sm font-medium truncate">{activeClient.name}</span>
       </div>
     )
   }
@@ -41,19 +39,19 @@ export default function ClientSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 bg-surface-container border border-outline rounded-full pl-2 pr-3 py-1.5 hover:border-primary transition-colors"
+        className="flex items-center gap-2 w-full bg-surface-container border border-outline rounded-xl px-3 py-2 hover:border-primary transition-colors"
       >
-        <span className="w-7 h-7 rounded-full bg-primary/15 border border-primary/40 text-primary text-xs font-bold flex items-center justify-center">
+        <span className="w-7 h-7 rounded-full bg-primary/15 border border-primary/40 text-primary text-xs font-bold flex items-center justify-center shrink-0">
           {activeClient.initials}
         </span>
-        <span className="hidden sm:block text-sm font-medium max-w-[120px] truncate">
+        <span className="flex-1 min-w-0 text-left text-sm font-medium truncate">
           {activeClient.name}
         </span>
-        <Icon name="expand_more" className="text-base text-on-surface-variant" />
+        <Icon name="expand_more" className="text-base text-on-surface-variant shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-64 bg-surface-container border border-outline rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in-up">
+        <div className="absolute left-0 right-0 mt-2 bg-surface-container border border-outline rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in-up">
           <p className="px-4 py-3 text-[10px] uppercase tracking-widest text-on-surface-variant font-label-mono border-b border-outline">
             Switch Client
           </p>

@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import Icon from './Icon'
+import ClientSwitcher from './ClientSwitcher'
 import { NAV_ITEMS } from '../data/nav'
 import { useAuth } from '../context/AuthContext'
 
@@ -37,8 +38,13 @@ export default function Sidebar({ open, onClose }) {
           </div>
         </div>
 
+        {/* Client switcher */}
+        <div className="px-4 pb-2">
+          <ClientSwitcher />
+        </div>
+
         {/* Nav */}
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto custom-scrollbar">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}

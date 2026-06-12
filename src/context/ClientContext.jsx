@@ -9,11 +9,30 @@ const ClientContext = createContext(null)
 // Safe placeholder so pages never crash on a missing active client.
 const FALLBACK = { id: '', name: '—', initials: '—', health: 0, features: { internal: true } }
 
+const ACTIVE_CLIENT_KEY = 'mc.activeClientId'
+
 export function ClientProvider({ children }) {
   const { isAdmin, profile } = useAuth()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeId, setActiveId] = useState(null)
+  // Survive refreshes: start from the last selected client (validated against
+  // the loaded roster in load()).
+  const [activeId, setActiveId] = useState(() => {
+    try {
+      return localStorage.getItem(ACTIVE_CLIENT_KEY)
+    } catch {
+      return null
+    }
+  })
+
+  const selectClient = useCallback((id) => {
+    setActiveId(id)
+    try {
+      localStorage.setItem(ACTIVE_CLIENT_KEY, id)
+    } catch {
+      /* private mode etc. — selection just won't persist */
+    }
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -38,10 +57,10 @@ export function ClientProvider({ children }) {
     async (fields) => {
       const created = await createClient(fields)
       await load()
-      setActiveId(created.id)
+      selectClient(created.id)
       return created
     },
-    [load],
+    [load, selectClient],
   )
 
   // Admin-only (enforced server-side): removes the client + all their data
@@ -59,13 +78,13 @@ export function ClientProvider({ children }) {
     return {
       clients,
       activeClient,
-      setActiveClient: setActiveId,
+      setActiveClient: selectClient,
       canSwitch: isAdmin,
       addClient,
       removeClient,
       reload: load,
     }
-  }, [clients, activeId, isAdmin, addClient, removeClient, load])
+  }, [clients, activeId, isAdmin, addClient, removeClient, load, selectClient])
 
   if (loading) {
     return (

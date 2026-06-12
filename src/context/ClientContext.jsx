@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { fetchClients, createClient } from '../lib/clients'
+import { fetchClients, createClient, deleteClient } from '../lib/clients'
 import { useAuth } from './AuthContext'
 import Icon from '../components/Icon'
 import EmptyRosterGate from '../components/EmptyRosterGate'
@@ -44,6 +44,16 @@ export function ClientProvider({ children }) {
     [load],
   )
 
+  // Admin-only (enforced server-side): removes the client + all their data
+  // from OUR database. External accounts (e.g. their GHL) are untouched.
+  const removeClient = useCallback(
+    async (id) => {
+      await deleteClient(id)
+      await load()
+    },
+    [load],
+  )
+
   const value = useMemo(() => {
     const activeClient = clients.find((c) => c.id === activeId) ?? clients[0] ?? FALLBACK
     return {
@@ -52,9 +62,10 @@ export function ClientProvider({ children }) {
       setActiveClient: setActiveId,
       canSwitch: isAdmin,
       addClient,
+      removeClient,
       reload: load,
     }
-  }, [clients, activeId, isAdmin, addClient, load])
+  }, [clients, activeId, isAdmin, addClient, removeClient, load])
 
   if (loading) {
     return (

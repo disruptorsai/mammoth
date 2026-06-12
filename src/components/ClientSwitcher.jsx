@@ -9,10 +9,75 @@ function healthColor(score) {
   return 'text-error'
 }
 
+// Admin-only confirm dialog: deletes the client + all their data from OUR
+// database. External accounts (their GoHighLevel, socials) are untouched.
+function DeleteClientModal({ client, onClose, onDeleted }) {
+  const { removeClient } = useClient()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function confirm() {
+    setBusy(true)
+    setError('')
+    try {
+      await removeClient(client.id)
+      onDeleted()
+    } catch (e) {
+      setError(e.message ?? String(e))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface-container border border-outline rounded-xl w-full max-w-md p-6 space-y-4 animate-fade-in-up"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-error/15 flex items-center justify-center text-error shrink-0">
+            <Icon name="delete_forever" />
+          </div>
+          <h3 className="font-headline-lg text-xl text-white">Delete {client.name}?</h3>
+        </div>
+        <p className="text-sm text-on-surface-variant">
+          This permanently removes <span className="text-white font-medium">{client.name}</span>{' '}
+          and all of their data in Mission Control — tasks, content, leads, campaigns, keywords,
+          and usage history. Their logins are unlinked (not deleted).
+        </p>
+        <p className="text-sm text-on-surface-variant">
+          Their <span className="text-primary">GoHighLevel account and social channels are NOT
+          touched</span> — this only cleans up our database.
+        </p>
+        {error && <p className="text-error text-sm">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-outline text-sm hover:border-primary transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={confirm}
+            disabled={busy}
+            className="px-5 py-2 rounded-lg bg-error/90 hover:bg-error text-black font-bold text-sm transition-colors disabled:opacity-50"
+          >
+            {busy ? 'Deleting…' : 'Delete client'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ClientSwitcher() {
   const { clients, activeClient, setActiveClient, canSwitch } = useClient()
   const [open, setOpen] = useState(false)
   const [showNew, setShowNew] = useState(false)
+  const [toDelete, setToDelete] = useState(null)
   const ref = useRef(null)
 
   useEffect(() => {
@@ -63,7 +128,7 @@ export default function ClientSwitcher() {
                   setActiveClient(c.id)
                   setOpen(false)
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-variant transition-colors ${
+                className={`group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-variant transition-colors ${
                   c.id === activeClient.id ? 'bg-surface-variant/60' : ''
                 }`}
               >
@@ -77,6 +142,18 @@ export default function ClientSwitcher() {
                   </span>
                 </span>
                 {c.id === activeClient.id && <Icon name="check" className="text-primary text-base" />}
+                <span
+                  role="button"
+                  aria-label={`Delete ${c.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setToDelete(c)
+                    setOpen(false)
+                  }}
+                  className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all shrink-0"
+                >
+                  <Icon name="delete" className="text-base" />
+                </span>
               </button>
             ))}
             {clients.length === 0 && (
@@ -96,6 +173,13 @@ export default function ClientSwitcher() {
       )}
 
       {showNew && <NewClientModal onClose={() => setShowNew(false)} />}
+      {toDelete && (
+        <DeleteClientModal
+          client={toDelete}
+          onClose={() => setToDelete(null)}
+          onDeleted={() => setToDelete(null)}
+        />
+      )}
     </div>
   )
 }

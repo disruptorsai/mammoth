@@ -49,6 +49,13 @@ export async function createClient({ id, name, initials, health, features }) {
   return normalize(data)
 }
 
+// Delete a client and ALL their data in OUR database (admin-only, enforced in
+// the delete_client() SQL function). Never touches external services like GHL.
+export async function deleteClient(id) {
+  const { error } = await supabase.rpc('delete_client', { p_client_id: id })
+  if (error) throw error
+}
+
 // Update client fields. Accepts DB column names (e.g. billing_email, phone, plan).
 export async function updateClient(id, fields) {
   const { data, error } = await supabase

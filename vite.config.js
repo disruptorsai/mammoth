@@ -52,6 +52,17 @@ export default defineConfig(({ mode }) => {
             Authorization: `Bearer ${GHL_KEY}`,
             ...(GHL_V1 ? {} : { Version: '2021-07-28' }),
           },
+          // Clients on their own GHL account send their key via x-ghl-key;
+          // swap it into Authorization (same behavior as api/ghl.js in prod).
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq, req) => {
+              const own = req.headers['x-ghl-key']
+              if (own) {
+                proxyReq.setHeader('Authorization', `Bearer ${own}`)
+                proxyReq.removeHeader('x-ghl-key')
+              }
+            })
+          },
         },
       },
     },

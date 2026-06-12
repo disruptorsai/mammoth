@@ -16,11 +16,15 @@ export class GhlError extends Error {
   }
 }
 
-async function ghlGet(path, params = {}) {
+async function ghlGet(path, params = {}, apiKey = '') {
   const qs = new URLSearchParams(params).toString()
   let res
   try {
-    res = await fetch(`/ghl-api/${path}${qs ? `?${qs}` : ''}`)
+    res = await fetch(`/ghl-api/${path}${qs ? `?${qs}` : ''}`, {
+      // Per-client key for clients on their own GHL account; the proxy swaps it
+      // into Authorization. Empty -> the agency key from the server env.
+      headers: apiKey ? { 'x-ghl-key': apiKey } : {},
+    })
   } catch {
     throw new GhlError('Could not reach GoHighLevel.', 0)
   }
@@ -37,23 +41,44 @@ async function ghlGet(path, params = {}) {
   return data
 }
 
+// ---- Per-client API keys (clients on their own GHL account) ------------------
+// Stored in client_secrets (ADMIN-ONLY RLS — client logins can't read it).
+
+export async function fetchClientGhlKey(clientId) {
+  if (!isSupabaseConfigured) return ''
+  const { data, error } = await supabase
+    .from('client_secrets')
+    .select('ghl_api_key')
+    .eq('client_id', clientId)
+    .maybeSingle()
+  if (error) return '' // non-admins get nothing — they fall back to the agency key
+  return data?.ghl_api_key ?? ''
+}
+
+export async function saveClientGhlKey(clientId, key) {
+  const { error } = await supabase
+    .from('client_secrets')
+    .upsert({ client_id: clientId, ghl_api_key: key })
+  if (error) throw error
+}
+
 // Cheap connectivity check for a location.
-export async function pingGhl(locationId) {
+export async function pingGhl(locationId, apiKey = '') {
   try {
-    await ghlGet(`locations/${locationId}`)
+    await ghlGet(`locations/${locationId}`, {}, apiKey)
     return true
   } catch {
     return false
   }
 }
 
-export async function fetchPipelines(locationId) {
-  const data = await ghlGet('opportunities/pipelines', { locationId })
+export async function fetchPipelines(locationId, apiKey = '') {
+  const data = await ghlGet('opportunities/pipelines', { locationId }, apiKey)
   return Array.isArray(data?.pipelines) ? data.pipelines : []
 }
 
-export async function fetchOpportunities(locationId) {
-  const data = await ghlGet('opportunities/search', { location_id: locationId, limit: 100 })
+export async function fetchOpportunities(locationId, apiKey = '') {
+  const data = await ghlGet('opportunities/search', { location_id: locationId, limit: 100 }, apiKey)
   return Array.isArray(data?.opportunities) ? data.opportunities : []
 }
 
@@ -73,9 +98,12 @@ export async function syncLeadsFromGhl(client) {
   const locationId = client.ghlLocationId
   if (!locationId) throw new GhlError('No GHL location id set for this client.', 0)
 
+  // Use the client's own key when they run their own GHL account.
+  const apiKey = await fetchClientGhlKey(client.id)
+
   const [pipelines, opportunities] = await Promise.all([
-    fetchPipelines(locationId),
-    fetchOpportunities(locationId),
+    fetchPipelines(locationId, apiKey),
+    fetchOpportunities(locationId, apiKey),
   ])
 
   // stage id -> { index, total } within its pipeline

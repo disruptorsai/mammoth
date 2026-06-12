@@ -18,7 +18,10 @@ export default async function handler(req, res) {
     return
   }
 
-  const key = process.env.GHL_API_KEY
+  // Per-client override: clients on their OWN GHL account send their key via
+  // x-ghl-key (loaded admin-only from client_secrets); otherwise the agency
+  // key from the env is used.
+  const key = req.headers['x-ghl-key'] || process.env.GHL_API_KEY
   if (!key) {
     res.status(500).json({ error: 'GHL_API_KEY is not configured on the server.' })
     return

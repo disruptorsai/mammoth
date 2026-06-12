@@ -8,7 +8,7 @@ import { useClient } from '../context/ClientContext'
 import { useAuth } from '../context/AuthContext'
 import { fetchLeads, fetchClientActivities, addLeadActivity, ACTIVITY_KINDS } from '../lib/leads'
 import { relTime } from '../lib/activity'
-import { syncLeadsFromGhl } from '../lib/ghl'
+import { syncLeadsFromGhl, fetchClientGhlKey, saveClientGhlKey } from '../lib/ghl'
 import { updateClient } from '../lib/clients'
 import { useToast } from '../components/Toast'
 
@@ -108,6 +108,7 @@ export default function Crm() {
   const [syncing, setSyncing] = useState(false)
   const [showGhlSettings, setShowGhlSettings] = useState(false)
   const [locationDraft, setLocationDraft] = useState('')
+  const [keyDraft, setKeyDraft] = useState('')
   const createLeadRef = useRef(null)
 
   const reloadSide = useCallback(async () => {
@@ -141,13 +142,20 @@ export default function Crm() {
     }
   }
 
+  async function openGhlSettings() {
+    setLocationDraft(activeClient.ghlLocationId || '')
+    setKeyDraft(await fetchClientGhlKey(activeClient.id))
+    setShowGhlSettings(true)
+  }
+
   async function saveGhlSettings(e) {
     e.preventDefault()
     try {
       await updateClient(activeClient.id, { ghl_location_id: locationDraft.trim() })
+      await saveClientGhlKey(activeClient.id, keyDraft.trim())
       await reloadClients()
       setShowGhlSettings(false)
-      show(locationDraft.trim() ? 'GHL location linked.' : 'GHL location cleared.', 'check_circle')
+      show(locationDraft.trim() ? 'GHL settings saved.' : 'GHL disconnected.', 'check_circle')
     } catch (err) {
       show(err.message ?? String(err), 'error')
     }
@@ -204,10 +212,7 @@ export default function Crm() {
                   )}
                   {isAdmin && (
                     <button
-                      onClick={() => {
-                        setLocationDraft(activeClient.ghlLocationId || '')
-                        setShowGhlSettings(true)
-                      }}
+                      onClick={openGhlSettings}
                       className="text-on-surface-variant hover:text-primary text-sm font-bold transition-all"
                     >
                       Settings
@@ -345,8 +350,24 @@ export default function Crm() {
                 className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary font-label-mono"
               />
               <span className="mt-1.5 block text-[11px] text-on-surface-variant">
-                GHL → the sub-account’s Settings → Business Profile. Leave empty to disconnect. The
-                agency API key lives in the server env (GHL_API_KEY), not here.
+                GHL → the sub-account’s Settings → Business Profile. Leave empty to disconnect.
+              </span>
+            </label>
+            <label className="block">
+              <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">
+                Client’s own API key (optional)
+              </span>
+              <input
+                type="password"
+                value={keyDraft}
+                onChange={(e) => setKeyDraft(e.target.value)}
+                placeholder="Only if this client runs their own GHL account"
+                className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary font-label-mono"
+              />
+              <span className="mt-1.5 block text-[11px] text-on-surface-variant">
+                Leave empty for sub-accounts under the agency — those use the agency key from the
+                server env. For a client on their own GHL, paste their Private Integration token
+                (their GHL → Settings → Private Integrations). Stored admin-only.
               </span>
             </label>
             <div className="flex justify-end gap-2">

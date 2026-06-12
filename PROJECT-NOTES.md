@@ -82,11 +82,15 @@ supabase/migrations/         0001–0005
 - [x] Paid-ads gating CTA (per `features.ads`)
 - [x] Deploy on Vercel (SPA rewrite + serverless Vista proxy)
 - [ ] Top-bar **search / notifications / settings** (still decorative)
-- [ ] Stripe billing — real top-ups + plan changes + metering (+ confirm tier prices)
-- [ ] CRM APIs — GoHighLevel / HubSpot / Jobber sync
-- [ ] Ads — Meta/Google/LinkedIn connectors + live dashboards
+- [x] **No dummy data** — every page derives from Supabase/Vista or shows honest empty states
+- [x] CRM leads pipeline + interactions (in-app, Supabase) with **GoHighLevel read-only sync**
+- [x] Ad campaigns CRUD + derived analytics; SEO keyword watchlist; editable billing profile
+- [x] **AI generation (Claude API)** — ad copy + captions (→ content board) + usage metering
+- [ ] Stripe billing — when the API key arrives: checkout/portal/webhook, behind VITE_BILLING_ENABLED (+ confirm tier prices)
+- [ ] GHL write-back (dragging a synced lead updates GHL) · HubSpot/Jobber if ever needed
+- [ ] Ads — Meta/Google/LinkedIn connectors feeding ad_campaigns automatically
 - [ ] WordPress auto-publish from SEO/GEO · Client health score · Notetaker→tasks · Slack links
-- [ ] Real charts (replace CSS-bar mockups) · Overview hero reword (pending copy)
+- [ ] Vista engagement/reach metrics if the MCP exposes analytics tools (probe tools/list)
 
 ## Decisions / log
 
@@ -97,6 +101,7 @@ supabase/migrations/         0001–0005
 - 2026-06-04 — Made remaining pages interactive (shared `Toast` for unwired actions); added ABOUT.md.
 - 2026-06-09 — **Roster starts empty** (removed seed); **client switcher moved into the sidebar** (between brand and nav).
 - 2026-06-09 — **Create-a-client-first gate**: empty roster prompts admins to add a client before the app loads. Confirmed clients are core to the model (data is scoped per client); admins add clients in-app via the switcher form.
+- 2026-06-12 — **Fully functional, no dummy data** (phased): Phase 1 removed every mock — Overview/Social/CRM/PaidAds/SEO/Subscription all run on real per-client data (migrations 0007–0010: leads+activities, ad_campaigns, client profile fields + vista_group_id, seo_keywords). Phase 2 wired the **Claude API** (`/claude-api` proxy, `claude-opus-4-8`) for ad copy + captions with a usage_events ledger (0011). Phase 3 wired **GoHighLevel** (`/ghl-api` proxy, per-client location id, read-only opportunity sync into leads; 0012). Phase 4 (Stripe) deferred until the API key exists — schema/flag pre-planned.
 
 ## Open questions
 

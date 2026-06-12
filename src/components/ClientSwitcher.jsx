@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Icon from './Icon'
 import { useClient } from '../context/ClientContext'
 import NewClientModal from './NewClientModal'
@@ -28,7 +29,9 @@ function DeleteClientModal({ client, onClose, onDeleted }) {
     }
   }
 
-  return (
+  // Portal: the sidebar's CSS transform would otherwise trap this fixed
+  // overlay inside the sidebar instead of centering it over the screen.
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
       onClick={onClose}
@@ -69,7 +72,8 @@ function DeleteClientModal({ client, onClose, onDeleted }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -77,6 +81,7 @@ export default function ClientSwitcher() {
   const { clients, activeClient, setActiveClient, canSwitch } = useClient()
   const [open, setOpen] = useState(false)
   const [showNew, setShowNew] = useState(false)
+  const [toEdit, setToEdit] = useState(null)
   const [toDelete, setToDelete] = useState(null)
   const ref = useRef(null)
 
@@ -144,6 +149,18 @@ export default function ClientSwitcher() {
                 {c.id === activeClient.id && <Icon name="check" className="text-primary text-base" />}
                 <span
                   role="button"
+                  aria-label={`Edit ${c.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setToEdit(c)
+                    setOpen(false)
+                  }}
+                  className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-primary transition-all shrink-0"
+                >
+                  <Icon name="edit" className="text-base" />
+                </span>
+                <span
+                  role="button"
                   aria-label={`Delete ${c.name}`}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -173,6 +190,7 @@ export default function ClientSwitcher() {
       )}
 
       {showNew && <NewClientModal onClose={() => setShowNew(false)} />}
+      {toEdit && <NewClientModal client={toEdit} onClose={() => setToEdit(null)} />}
       {toDelete && (
         <DeleteClientModal
           client={toDelete}

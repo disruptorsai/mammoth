@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Icon from './Icon'
 import { useClient } from '../context/ClientContext'
-import { slugify, initialsFrom } from '../lib/clients'
+import { slugify, initialsFrom, updateClient } from '../lib/clients'
 
 // Optional, toggleable feature flags (internal is always on).
 const TOGGLES = [
@@ -11,15 +12,28 @@ const TOGGLES = [
   { key: 'crm', label: 'CRM' },
 ]
 
-export default function NewClientModal({ onClose }) {
-  const { addClient } = useClient()
-  const [name, setName] = useState('')
-  const [health, setHealth] = useState(75)
-  const [features, setFeatures] = useState({ seo: true, social: true, ads: true, crm: true })
+// Create OR edit a client. Pass `client` to edit (name/modules/health; the id
+// stays fixed so all their data stays linked). Rendered via a portal because
+// the sidebar's CSS transform would otherwise trap the fixed overlay inside it.
+export default function NewClientModal({ client = null, onClose }) {
+  const { addClient, reload } = useClient()
+  const isEdit = Boolean(client)
+  const [name, setName] = useState(client?.name ?? '')
+  const [health, setHealth] = useState(client?.health ?? 75)
+  const [features, setFeatures] = useState(
+    client
+      ? {
+          seo: !!client.features?.seo,
+          social: !!client.features?.social,
+          ads: !!client.features?.ads,
+          crm: !!client.features?.crm,
+        }
+      : { seo: true, social: true, ads: true, crm: true },
+  )
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const id = useMemo(() => slugify(name), [name])
+  const id = useMemo(() => (isEdit ? client.id : slugify(name)), [isEdit, client, name])
 
   function toggle(key) {
     setFeatures((f) => ({ ...f, [key]: !f[key] }))
@@ -28,20 +42,25 @@ export default function NewClientModal({ onClose }) {
   async function submit(e) {
     e.preventDefault()
     if (!name.trim()) return
-    if (!id) {
+    if (!isEdit && !id) {
       setError('Name must contain letters or numbers.')
       return
     }
     setBusy(true)
     setError('')
     try {
-      await addClient({
-        id,
+      const payload = {
         name: name.trim(),
         initials: initialsFrom(name),
         health: Number(health),
         features: { internal: true, ...features },
-      })
+      }
+      if (isEdit) {
+        await updateClient(client.id, payload)
+        await reload()
+      } else {
+        await addClient({ id, ...payload })
+      }
       onClose()
     } catch (err) {
       const msg = err?.message || String(err)
@@ -50,7 +69,7 @@ export default function NewClientModal({ onClose }) {
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
       onClick={onClose}
@@ -58,10 +77,12 @@ export default function NewClientModal({ onClose }) {
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="bg-surface-container border border-outline rounded-xl w-full max-w-md p-6 space-y-4 animate-fade-in-up"
+        className="bg-surface-container border border-outline rounded-xl w-full max-w-md p-6 space-y-4 animate-fade-in-up max-h-[90vh] overflow-y-auto custom-scrollbar"
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-headline-lg text-xl text-primary">New Client</h3>
+          <h3 className="font-headline-lg text-xl text-primary">
+            {isEdit ? `Edit ${client.name}` : 'New Client'}
+          </h3>
           <button type="button" onClick={onClose} className="text-on-surface-variant hover:text-primary">
             <Icon name="close" />
           </button>
@@ -76,9 +97,10 @@ export default function NewClientModal({ onClose }) {
             placeholder="e.g. Acme Dental"
             className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
           />
-          {name.trim() && (
+          {!isEdit && name.trim() && (
             <span className="mt-1 block text-[11px] font-label-mono text-on-surface-variant">
-              id: <span className="text-primary">{id}</span> · initials: <span className="text-primary">{initialsFrom(name)}</span>
+              id: <span className="text-primary">{id}</span> · initials:{' '}
+              <span className="text-primary">{initialsFrom(name)}</span>
             </span>
           )}
         </label>
@@ -112,7 +134,7 @@ export default function NewClientModal({ onClose }) {
 
         <label className="block">
           <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">
-            Initial health · {health}
+            Health · {health}
           </span>
           <input
             type="range"
@@ -144,15 +166,18 @@ export default function NewClientModal({ onClose }) {
             disabled={busy || !name.trim()}
             className="gold-gradient text-black font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {busy ? 'Creating…' : 'Create client'}
+            {busy ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save changes' : 'Create client'}
           </button>
         </div>
 
-        <p className="text-[11px] text-on-surface-variant text-center">
-          Creates the workspace. Add their login in Supabase, then map it to{' '}
-          <span className="font-label-mono text-primary">{id || 'this-client'}</span>.
-        </p>
+        {!isEdit && (
+          <p className="text-[11px] text-on-surface-variant text-center">
+            Creates the workspace. Add their login in Supabase, then map it to{' '}
+            <span className="font-label-mono text-primary">{id || 'this-client'}</span>.
+          </p>
+        )}
       </form>
-    </div>
+    </div>,
+    document.body,
   )
 }

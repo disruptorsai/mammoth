@@ -70,6 +70,28 @@ export async function callTool(name, args = {}) {
   }
 }
 
+// --- Caching ------------------------------------------------------------------
+// Vista allows 60 requests/minute per integration, and several pages share the
+// same data (Overview, Social dashboard, calendar). Cache by key with a TTL and
+// dedupe in-flight calls: concurrent callers share one promise, and repeat
+// visits within the TTL don't hit the API at all. Errors are not cached.
+
+const _cache = new Map()
+
+function cached(key, ttlMs, fn) {
+  const hit = _cache.get(key)
+  if (hit && hit.expires > Date.now()) return hit.promise
+  const promise = fn().catch((err) => {
+    _cache.delete(key) // don't cache failures (e.g. rate_limited) — allow retry
+    throw err
+  })
+  _cache.set(key, { promise, expires: Date.now() + ttlMs })
+  return promise
+}
+
+const PROFILE_TTL = 10 * 60 * 1000 // profiles/groups change rarely
+const POSTS_TTL = 2 * 60 * 1000 // posts change often enough to keep fresh-ish
+
 // --- Domain calls -----------------------------------------------------------
 
 // findProfiles returns names like "Disruptors Media (Instagram Profile)" — split
@@ -85,21 +107,29 @@ function normalizeProfile(p) {
 }
 
 // Connected social profiles, normalized to { id, name, network }.
-export async function getProfiles({ limit = 100 } = {}) {
-  const raw = await callTool('findProfiles', { limit })
-  return (Array.isArray(raw) ? raw : []).map(normalizeProfile)
+export function getProfiles({ limit = 100 } = {}) {
+  return cached(`profiles:${limit}`, PROFILE_TTL, async () => {
+    const raw = await callTool('findProfiles', { limit })
+    return (Array.isArray(raw) ? raw : []).map(normalizeProfile)
+  })
 }
 
 // Client/brand groups, e.g. { profile_group_id, name, type, timezone }.
-export async function getProfileGroups() {
-  const raw = await callTool('findProfileGroups', {})
-  return Array.isArray(raw) ? raw : []
+export function getProfileGroups() {
+  return cached('groups', PROFILE_TTL, async () => {
+    const raw = await callTool('findProfileGroups', {})
+    return Array.isArray(raw) ? raw : []
+  })
 }
 
 // The full client tree: every profile group with its profiles nested under it.
 // One findProfileGroups call + one findProfiles call per group (parallel).
 // Returns [{ id, name, type, profiles: [{ id, name, network }] }].
-export async function getGroupedProfiles() {
+export function getGroupedProfiles() {
+  return cached('groupedProfiles', PROFILE_TTL, buildGroupedProfiles)
+}
+
+async function buildGroupedProfiles() {
   const groups = await getProfileGroups()
   const withProfiles = await Promise.all(
     groups.map(async (g) => {
@@ -140,7 +170,7 @@ export const POST_STATUSES = [
 // Posts from the publishing calendar, normalized to plain objects.
 // status + profile_ids are required by the API (filter mode). listPosts returns
 // a { columns, rows } table in compact mode — we zip it back into objects.
-export async function listPosts({
+export function listPosts({
   profileIds,
   dateFrom,
   dateTo,
@@ -148,7 +178,14 @@ export async function listPosts({
   limit = 500, // API max
   timezone,
 } = {}) {
-  if (!profileIds?.length) return []
+  if (!profileIds?.length) return Promise.resolve([])
+  const key = `posts:${[...profileIds].sort().join(',')}:${dateFrom}:${dateTo}:${[...status].sort().join('|')}:${limit}:${timezone || ''}`
+  return cached(key, POSTS_TTL, () =>
+    fetchPosts({ profileIds, dateFrom, dateTo, status, limit, timezone }),
+  )
+}
+
+async function fetchPosts({ profileIds, dateFrom, dateTo, status, limit, timezone }) {
   const res = await callTool('listPosts', {
     status,
     profile_ids: profileIds,

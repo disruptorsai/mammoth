@@ -8,7 +8,7 @@
 // ("Your subscription does not offer API access"), but the MCP endpoint returns
 // live data with the same key — and exposes far more (analytics, posts, inbox…).
 
-const ENDPOINT = '/vista-mcp'
+const ENDPOINT = '/api/vista-mcp'
 let _id = 0
 
 export class VistaError extends Error {

@@ -13,16 +13,16 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       open: true,
       proxy: {
-        // Browser calls /vista-mcp (same-origin, no CORS); we forward to the Vista
-        // Social MCP endpoint and inject the api_key query param server-side so it
-        // never reaches the client bundle. The MCP endpoint (JSON-RPC) returns live
-        // data with this key, unlike the subscription-gated REST API.
-        '/vista-mcp': {
+        // Dev mirror of the production serverless function (api/vista-mcp.js).
+        // Browser calls /api/vista-mcp (same-origin, no CORS); we forward to the
+        // Vista Social MCP endpoint and inject the api_key server-side so it never
+        // reaches the client bundle.
+        '/api/vista-mcp': {
           target: 'https://vistasocial.com',
           changeOrigin: true,
           secure: true,
           rewrite: (path) =>
-            path.replace(/^\/vista-mcp.*/, '/api/integration/mcp') +
+            path.replace(/^\/api\/vista-mcp.*/, '/api/integration/mcp') +
             (VISTA_KEY ? `?api_key=${VISTA_KEY}` : ''),
         },
       },

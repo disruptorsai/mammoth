@@ -6,6 +6,7 @@ dist-ssr
 .env.*
 !.env.example
 .vite
+.vercel
 .playwright-mcp
 mc-*.png
 .DS_Store

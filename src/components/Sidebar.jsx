@@ -3,6 +3,7 @@ import Icon from './Icon'
 import ClientSwitcher from './ClientSwitcher'
 import { NAV_ITEMS } from '../data/nav'
 import { useAuth } from '../context/AuthContext'
+import logo from '../assets/mammoth-logo.png'
 
 export default function Sidebar({ open, onClose }) {
   const { signOut } = useAuth()
@@ -22,20 +23,8 @@ export default function Sidebar({ open, onClose }) {
         }`}
       >
         {/* Brand anchor */}
-        <div className="p-6 flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg gold-gradient flex items-center justify-center shrink-0">
-              <Icon name="rocket_launch" filled className="text-black" />
-            </div>
-            <div>
-              <h2 className="font-headline-lg text-headline-lg font-bold text-primary leading-none">
-                Mission Control
-              </h2>
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant opacity-60 font-label-mono">
-                Strategic Intelligence
-              </p>
-            </div>
-          </div>
+        <div className="p-6 flex items-center justify-center">
+          <img src={logo} alt="Mammoth" className="w-44 h-auto object-contain" />
         </div>
 
         {/* Client switcher */}

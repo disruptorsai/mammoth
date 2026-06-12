@@ -7,6 +7,10 @@ function normalize(row) {
     initials: row.initials || row.name.slice(0, 2).toUpperCase(),
     health: row.health ?? 75,
     features: row.features ?? { internal: true },
+    billingEmail: row.billing_email ?? '',
+    phone: row.phone ?? '',
+    plan: row.plan ?? null,
+    vistaGroupId: row.vista_group_id ?? null,
   }
 }
 
@@ -37,6 +41,18 @@ export async function createClient({ id, name, initials, health, features }) {
   const { data, error } = await supabase
     .from('clients')
     .insert({ id, name, initials, health, features })
+    .select()
+    .single()
+  if (error) throw error
+  return normalize(data)
+}
+
+// Update client fields. Accepts DB column names (e.g. billing_email, phone, plan).
+export async function updateClient(id, fields) {
+  const { data, error } = await supabase
+    .from('clients')
+    .update(fields)
+    .eq('id', id)
     .select()
     .single()
   if (error) throw error

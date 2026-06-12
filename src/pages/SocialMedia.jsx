@@ -1,33 +1,29 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Icon from '../components/Icon'
 import ContentCalendar from '../components/ContentCalendar'
 import ContentBoard from '../components/ContentBoard'
 import { getProfiles, networkStyle } from '../lib/vistaSocial'
+import { getClientSocialSnapshot, postsPerDay } from '../lib/socialStats'
+import { useClient } from '../context/ClientContext'
 
-const SUB_TABS = ['Dashboard', 'Board', 'Analytics', 'Library', 'Generators']
-
-const CHART_BARS = [
-  { height: '60%', hover: '65%' },
-  { height: '45%', hover: '50%' },
-  { height: '85%', hover: '90%' },
-  { height: '55%', hover: '60%' },
-  { height: '70%', hover: '75%', glow: true },
-  { height: '40%', hover: '45%' },
-  { height: '95%', hover: '100%', glowStrong: true },
-]
+const SUB_TABS = ['Dashboard', 'Board']
 
 export default function SocialMedia() {
   const { openNav } = useOutletContext()
+  const { activeClient } = useClient()
   const [activeTab, setActiveTab] = useState('Dashboard')
-  const [mediaMode, setMediaMode] = useState('IMAGE')
-  const [sliderValue, setSliderValue] = useState(4)
 
   // Vista Social connected channels (live)
   const [channels, setChannels] = useState([])
   const [channelsState, setChannelsState] = useState('loading') // loading | ready | error
   const [channelsError, setChannelsError] = useState('')
+
+  // Per-client post snapshot (drives the metric cards + posts/day chart)
+  const [snapshot, setSnapshot] = useState(null)
+  const [snapshotError, setSnapshotError] = useState(false)
+  const [chartRange, setChartRange] = useState(7)
 
   const loadChannels = useCallback(async () => {
     setChannelsState('loading')
@@ -46,7 +42,34 @@ export default function SocialMedia() {
     loadChannels()
   }, [loadChannels])
 
+  useEffect(() => {
+    setSnapshot(null)
+    setSnapshotError(false)
+    getClientSocialSnapshot(activeClient)
+      .then(setSnapshot)
+      .catch(() => {
+        setSnapshot({ linked: false, posts: [], stats: null })
+        setSnapshotError(true)
+      })
+  }, [activeClient])
+
+  const chartSeries = useMemo(
+    () => (snapshot?.posts ? postsPerDay(snapshot.posts, chartRange) : []),
+    [snapshot, chartRange],
+  )
+  const chartMax = Math.max(1, ...chartSeries.map((d) => d.count))
+  const chartHasData = chartSeries.some((d) => d.count > 0)
+
   const channelCount = channelsState === 'ready' ? channels.length : null
+  const stats = snapshot?.stats
+  const statValue = (v) => (stats ? String(v) : '—')
+  const statSub = snapshotError
+    ? 'Offline'
+    : snapshot && !snapshot.linked
+      ? 'Not linked'
+      : stats
+        ? ''
+        : 'Syncing'
 
   return (
     <>
@@ -78,43 +101,28 @@ export default function SocialMedia() {
         ) : (
           <>
 
-        {/* Hero stats section */}
+        {/* Hero stats — real counts from Vista Social for the active client */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-gutter">
-          {/* Average Engagement */}
-          <div className="bg-surface-container border border-outline p-6 rounded-xl space-y-2 group hover:border-primary transition-colors duration-300">
-            <span className="font-label-mono text-label-mono text-on-surface-variant uppercase">Average Engagement</span>
-            <div className="flex items-end gap-2">
-              <h3 className="text-3xl font-bold text-white">8.4%</h3>
-              <span className="text-primary text-sm mb-1 font-bold">+1.2%</span>
+          {[
+            { label: 'Published (30d)', value: statValue(stats?.published30) },
+            { label: 'Scheduled', value: statValue(stats?.scheduledUpcoming) },
+            { label: 'In Review / Drafts', value: statValue(stats?.inReviewOrDraft) },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className="bg-surface-container border border-outline p-6 rounded-xl space-y-2 group hover:border-primary transition-colors duration-300"
+            >
+              <span className="font-label-mono text-label-mono text-on-surface-variant uppercase">
+                {card.label}
+              </span>
+              <div className="flex items-end gap-2">
+                <h3 className="text-3xl font-bold text-white">{card.value}</h3>
+                {statSub && (
+                  <span className="text-on-surface-variant text-sm mb-1 font-medium">{statSub}</span>
+                )}
+              </div>
             </div>
-            <div className="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
-              <div className="bg-primary h-full w-[84%]" />
-            </div>
-          </div>
-
-          {/* Total Reach */}
-          <div className="bg-surface-container border border-outline p-6 rounded-xl space-y-2 group hover:border-primary transition-colors duration-300">
-            <span className="font-label-mono text-label-mono text-on-surface-variant uppercase">Total Reach</span>
-            <div className="flex items-end gap-2">
-              <h3 className="text-3xl font-bold text-white">1.2M</h3>
-              <span className="text-primary text-sm mb-1 font-bold">+184k</span>
-            </div>
-            <div className="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
-              <div className="bg-primary h-full w-[72%]" />
-            </div>
-          </div>
-
-          {/* Campaign Velocity */}
-          <div className="bg-surface-container border border-outline p-6 rounded-xl space-y-2 group hover:border-primary transition-colors duration-300">
-            <span className="font-label-mono text-label-mono text-on-surface-variant uppercase">Campaign Velocity</span>
-            <div className="flex items-end gap-2">
-              <h3 className="text-3xl font-bold text-white">92/100</h3>
-              <span className="text-primary text-sm mb-1 font-bold">Peak</span>
-            </div>
-            <div className="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
-              <div className="bg-primary h-full w-[92%]" style={{ boxShadow: '0 0 8px #eec065' }} />
-            </div>
-          </div>
+          ))}
 
           {/* Active Channels */}
           <div className="bg-surface-container border border-outline p-6 rounded-xl space-y-2 group hover:border-primary transition-colors duration-300">
@@ -141,45 +149,65 @@ export default function SocialMedia() {
         {/* Bento Grid Layout */}
         <div className="bento-grid">
 
-          {/* Engagement Velocity Chart */}
+          {/* Posting Activity — real posts/day from Vista */}
           <div className="col-span-12 lg:col-span-8 bg-surface-container border border-outline rounded-xl p-8 flex flex-col h-[400px]">
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h3 className="font-headline-lg text-headline-lg text-white">Engagement Velocity</h3>
-                <p className="text-on-surface-variant font-body-md">Real-time interaction acceleration across all platforms.</p>
+                <h3 className="font-headline-lg text-headline-lg text-white">Posting Activity</h3>
+                <p className="text-on-surface-variant font-body-md">
+                  Posts per day{snapshot?.group ? ` — ${snapshot.group.name}` : ''}.
+                </p>
               </div>
               <div className="flex gap-2">
-                <button className="px-4 py-1 rounded-full border border-outline text-xs font-label-mono hover:border-primary">7D</button>
-                <button className="px-4 py-1 rounded-full bg-primary-container text-on-primary-container text-xs font-bold font-label-mono">30D</button>
+                {[7, 30].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setChartRange(d)}
+                    className={`px-4 py-1 rounded-full text-xs font-label-mono transition-colors ${
+                      chartRange === d
+                        ? 'bg-primary-container text-on-primary-container font-bold'
+                        : 'border border-outline hover:border-primary'
+                    }`}
+                  >
+                    {d}D
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="flex-1 flex items-end gap-4 relative pt-10">
-              {CHART_BARS.map((bar, i) => (
-                <div key={i} className="flex-1 bg-surface-variant/30 relative h-full rounded-t-lg group">
-                  <div
-                    className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary/40 to-primary rounded-t-lg transition-all duration-500"
-                    style={{
-                      height: bar.height,
-                      boxShadow: bar.glowStrong
-                        ? '0 0 20px rgba(191,149,63,0.4)'
-                        : bar.glow
-                        ? '0 0 15px rgba(191,149,63,0.3)'
-                        : undefined,
-                    }}
-                  />
-                </div>
-              ))}
+            <div className="flex-1 flex items-end gap-1 relative pt-10">
+              {!snapshot && (
+                <p className="absolute inset-0 flex items-center justify-center text-sm text-on-surface-variant">
+                  Loading…
+                </p>
+              )}
+              {snapshot && !chartHasData && (
+                <p className="absolute inset-0 flex items-center justify-center text-sm text-on-surface-variant text-center px-8">
+                  {snapshotError
+                    ? 'Social data unavailable — check the Vista Social connection.'
+                    : snapshot.linked
+                      ? 'No posts in this window yet.'
+                      : `No Vista group matches “${activeClient.name}”.`}
+                </p>
+              )}
+              {chartHasData &&
+                chartSeries.map((d) => (
+                  <div key={d.day} className="flex-1 bg-surface-variant/30 relative h-full rounded-t-lg group">
+                    <div
+                      className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary/40 to-primary rounded-t-lg transition-all duration-500"
+                      style={{ height: `${Math.max(3, (d.count / chartMax) * 100)}%` }}
+                    />
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-primary font-bold whitespace-nowrap">
+                      {d.count} · {d.day.slice(5)}
+                    </div>
+                  </div>
+                ))}
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20 border-l border-outline">
                 <div className="border-t border-outline w-full" />
                 <div className="border-t border-outline w-full" />
                 <div className="border-t border-outline w-full" />
                 <div className="border-t border-outline w-full" />
               </div>
-            </div>
-
-            <div className="flex justify-between mt-4 text-label-mono text-on-surface-variant text-[10px]">
-              <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span>
             </div>
           </div>
 
@@ -295,94 +323,17 @@ export default function SocialMedia() {
           {/* Content Calendar — live from Vista Social */}
           <ContentCalendar />
 
-          {/* AI Content Generator */}
-          <div className="col-span-12 lg:col-span-5 bg-surface-container border border-outline rounded-xl p-8 flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline-lg text-headline-lg text-white">AI Content Generator</h3>
-              <div className="flex p-1 bg-surface-container-low border border-outline rounded-lg">
-                <button
-                  onClick={() => setMediaMode('IMAGE')}
-                  className={`px-3 py-1 text-[10px] font-bold rounded-md transition-colors ${
-                    mediaMode === 'IMAGE'
-                      ? 'bg-primary-container text-on-primary-container'
-                      : 'text-on-surface-variant hover:text-white'
-                  }`}
-                >
-                  IMAGE
-                </button>
-                <button
-                  onClick={() => setMediaMode('VIDEO')}
-                  className={`px-3 py-1 text-[10px] font-bold rounded-md transition-colors ${
-                    mediaMode === 'VIDEO'
-                      ? 'bg-primary-container text-on-primary-container'
-                      : 'text-on-surface-variant hover:text-white'
-                  }`}
-                >
-                  VIDEO
-                </button>
-              </div>
+          {/* AI Content Generator — comes online with the AI release */}
+          <div className="col-span-12 lg:col-span-5 bg-surface-container border border-outline rounded-xl p-8 flex flex-col justify-center items-center text-center gap-4">
+            <div className="w-12 h-12 rounded-xl gold-gradient flex items-center justify-center">
+              <Icon name="auto_awesome" filled className="text-black" />
             </div>
-
-            <div className="space-y-6 flex-1">
-              <div className="space-y-2">
-                <label className="font-label-mono text-[12px] uppercase text-on-surface-variant tracking-wider">Prompt</label>
-                <textarea
-                  className="w-full bg-surface-container-low border border-outline rounded-xl p-4 text-body-md focus:outline-none focus:border-primary placeholder-on-surface-variant/30 min-h-[120px] resize-none"
-                  placeholder="Describe the visual scene in detail..."
-                  defaultValue=""
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="font-label-mono text-[12px] uppercase text-on-surface-variant">Aspect Ratio</label>
-                  <select className="w-full bg-surface-container-low border border-outline rounded-xl px-3 py-2 text-sm appearance-none focus:outline-none focus:border-primary">
-                    <option>16:9 Cinematic</option>
-                    <option>9:16 Vertical</option>
-                    <option>1:1 Square</option>
-                    <option>4:5 Social</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="font-label-mono text-[12px] uppercase text-on-surface-variant">Style</label>
-                  <select className="w-full bg-surface-container-low border border-outline rounded-xl px-3 py-2 text-sm appearance-none focus:outline-none focus:border-primary">
-                    <option>Photorealistic</option>
-                    <option>Cyberpunk</option>
-                    <option>Minimalist</option>
-                    <option>Oil Painting</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="font-label-mono text-[12px] uppercase text-on-surface-variant">Duration / Samples</label>
-                <div className="flex items-center gap-4">
-                  <input
-                    className="flex-1 accent-primary"
-                    max="10"
-                    min="1"
-                    type="range"
-                    value={sliderValue}
-                    onChange={(e) => setSliderValue(Number(e.target.value))}
-                  />
-                  <span className="font-label-mono text-primary text-sm">{sliderValue}.0s</span>
-                </div>
-              </div>
-
-              <button className="w-full bg-primary-container text-on-primary-container py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg glow-gold uppercase tracking-widest text-sm mt-auto">
-                <Icon name="auto_awesome" />
-                Generate Asset
-              </button>
-            </div>
-
-            <div className="mt-6 p-4 bg-surface-variant/30 rounded-xl border border-outline flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                <Icon name="speed" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold">High-Priority GPU Queue</h4>
-                <p className="text-[10px] text-on-surface-variant">Est. generation time: 24s</p>
-              </div>
+            <div>
+              <h3 className="font-headline-lg text-headline-lg text-white mb-1">AI Content Generator</h3>
+              <p className="text-on-surface-variant text-sm max-w-xs">
+                Generate captions and creative with AI, straight into the content board. Coming
+                online in the next release.
+              </p>
             </div>
           </div>
 

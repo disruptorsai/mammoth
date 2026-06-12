@@ -1,331 +1,250 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Fab from '../components/Fab'
 import Icon from '../components/Icon'
-import { useToast } from '../components/Toast'
+import LeadBoard from '../components/LeadBoard'
+import { useClient } from '../context/ClientContext'
+import { fetchLeads, fetchClientActivities, addLeadActivity, ACTIVITY_KINDS } from '../lib/leads'
+import { relTime } from '../lib/activity'
 
-const INTEGRATIONS = [
-  {
-    icon: 'sync_alt',
-    watermarkIcon: 'hub',
-    name: 'GoHighLevel',
-    description: 'Omnichannel lead routing and automated workflows.',
-    lastSync: 'Last Sync: 2m ago',
-    badgeClass: 'bg-green-500/10 text-green-500 border border-green-500/20',
-    badgeLabel: 'Active',
-    configLabel: 'Config',
-    hasWatermark: true,
-  },
-  {
-    icon: 'database',
-    watermarkIcon: null,
-    name: 'HubSpot',
-    description: 'CRM Database & Inbound Marketing analytics sync.',
-    lastSync: 'Last Sync: 15m ago',
-    badgeClass: 'bg-green-500/10 text-green-500 border border-green-500/20',
-    badgeLabel: 'Active',
-    configLabel: 'Config',
-    hasWatermark: false,
-  },
-  {
-    icon: 'construction',
-    watermarkIcon: null,
-    name: 'Jobber',
-    description: 'Field operations and service quote synchronization.',
-    lastSync: 'Last Sync: 1h ago',
-    badgeClass: 'bg-primary/10 text-primary border border-primary/20',
-    badgeLabel: 'Standby',
-    configLabel: 'Configure',
-    hasWatermark: false,
-  },
-]
+const KIND_STYLES = {
+  note: { icon: 'sticky_note_2', bg: 'bg-primary/20', color: 'text-primary' },
+  email: { icon: 'mail', bg: 'bg-primary/20', color: 'text-primary' },
+  call: { icon: 'call', bg: 'bg-blue-500/20', color: 'text-blue-400' },
+  meeting: { icon: 'groups', bg: 'bg-green-500/20', color: 'text-green-400' },
+}
 
-const PIPELINE_COLUMNS = [
-  {
-    dotOpacity: 'bg-primary',
-    label: 'New Inquiry (14)',
-    cards: [
-      {
-        sourceBadgeClass: 'bg-primary/10 text-primary border border-primary/20',
-        source: 'GoHighLevel',
-        amount: '$2,400',
-        name: 'Alex Rivera',
-        avatar: { initials: 'AR', bg: 'bg-slate-500' },
-        meta: null,
-      },
-      {
-        sourceBadgeClass: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
-        source: 'HubSpot',
-        amount: '$5,800',
-        name: 'Precision Solar',
-        avatar: null,
-        meta: { icon: 'schedule', text: '1h ago' },
-      },
-    ],
-  },
-  {
-    dotOpacity: 'bg-primary/60',
-    label: 'Qualified (8)',
-    cards: [
-      {
-        sourceBadgeClass: 'bg-primary/10 text-primary border border-primary/20',
-        source: 'GoHighLevel',
-        amount: '$12,000',
-        name: 'Marcus Thorne',
-        avatar: null,
-        meta: { icon: 'bolt', text: 'High Priority', textClass: 'text-primary' },
-      },
-    ],
-  },
-  {
-    dotOpacity: 'bg-primary/30',
-    label: 'Proposal (4)',
-    cards: [
-      {
-        sourceBadgeClass: 'bg-orange-500/10 text-orange-400 border border-orange-500/20',
-        source: 'Jobber',
-        amount: '$3,150',
-        name: 'Sarah Jennings',
-        avatar: null,
-        meta: null,
-        opacity: 'opacity-80',
-      },
-    ],
-  },
-  {
-    dotOpacity: 'bg-primary/10',
-    label: 'Contract (2)',
-    cards: [],
-    dropZone: true,
-  },
-]
+// Add-interaction composer: pick a lead, a kind, write the note.
+function ActivityComposer({ leads, onAdded }) {
+  const [leadId, setLeadId] = useState('')
+  const [kind, setKind] = useState('note')
+  const [body, setBody] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
-const INTERACTIONS = [
-  {
-    iconName: 'mail',
-    filled: true,
-    iconBg: 'bg-primary/20',
-    iconColor: 'text-primary',
-    hasConnector: true,
-    title: 'Incoming Email',
-    titleSuffix: 'from Sarah Jennings',
-    body: '"Following up on the proposal sent yesterday. We have a few questions regarding..."',
-    bodyType: 'italic',
-    time: '12m ago',
-  },
-  {
-    iconName: 'call',
-    filled: true,
-    iconBg: 'bg-blue-500/20',
-    iconColor: 'text-blue-400',
-    hasConnector: true,
-    title: 'Call Completed',
-    titleSuffix: 'with Alex Rivera',
-    body: 'Transcript generated via GHL AI',
-    bodyType: 'badge',
-    time: '48m ago',
-  },
-  {
-    iconName: 'assignment_turned_in',
-    filled: true,
-    iconBg: 'bg-green-500/20',
-    iconColor: 'text-green-400',
-    hasConnector: false,
-    title: 'Quote Approved',
-    titleSuffix: 'in Jobber Sync',
-    body: null,
-    bodyType: null,
-    time: '2h ago',
-  },
-]
+  useEffect(() => {
+    if (!leadId && leads.length) setLeadId(leads[0].id)
+    if (leadId && !leads.some((l) => l.id === leadId)) setLeadId(leads[0]?.id ?? '')
+  }, [leads, leadId])
+
+  async function submit(e) {
+    e.preventDefault()
+    const lead = leads.find((l) => l.id === leadId)
+    if (!lead || !body.trim()) return
+    setBusy(true)
+    setError('')
+    try {
+      await addLeadActivity(lead, kind, body.trim())
+      setBody('')
+      onAdded()
+    } catch (err) {
+      setError(err.message ?? String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!leads.length) return null
+
+  return (
+    <form onSubmit={submit} className="p-4 border-t border-outline space-y-2">
+      <div className="flex gap-2">
+        <select
+          value={leadId}
+          onChange={(e) => setLeadId(e.target.value)}
+          className="flex-1 min-w-0 bg-surface-container border border-outline rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-primary"
+        >
+          {leads.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value)}
+          className="bg-surface-container border border-outline rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-primary"
+        >
+          {ACTIVITY_KINDS.map((k) => (
+            <option key={k.key} value={k.key}>
+              {k.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Log an interaction…"
+          className="flex-1 min-w-0 bg-surface-container border border-outline rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-primary"
+        />
+        <button
+          type="submit"
+          disabled={busy || !body.trim()}
+          className="gold-gradient text-black font-bold px-3 py-1.5 rounded-lg text-xs disabled:opacity-50"
+        >
+          Log
+        </button>
+      </div>
+      {error && <p className="text-error text-xs">{error}</p>}
+    </form>
+  )
+}
 
 export default function Crm() {
   const { openNav } = useOutletContext()
-  const { show, node: toast } = useToast()
+  const { activeClient } = useClient()
+  const [activities, setActivities] = useState([])
+  const [leads, setLeads] = useState([])
+  const [refreshKey, setRefreshKey] = useState(0)
+  const createLeadRef = useRef(null)
+
+  const reloadSide = useCallback(async () => {
+    const clientId = activeClient.id
+    const [acts, lds] = await Promise.all([
+      fetchClientActivities(clientId).catch(() => []),
+      fetchLeads(clientId).catch(() => []),
+    ])
+    setActivities(acts)
+    setLeads(lds)
+  }, [activeClient.id])
+
+  useEffect(() => {
+    reloadSide()
+  }, [reloadSide, refreshKey])
+
+  const ghlConnected = false // becomes real in the GHL integration phase
 
   return (
     <>
-      <TopBar title="External Integrations" searchPlaceholder="Global Search…" onMenu={openNav} />
+      <TopBar title="External Integrations" searchPlaceholder="Search leads…" onMenu={openNav} />
 
       <section className="p-margin-mobile md:p-margin-desktop">
         <div className="max-w-container-max mx-auto space-y-8">
 
-          {/* Integration Hub (Bento Grid) */}
+          {/* Integration hub — only what we actually plan to connect */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
-            {INTEGRATIONS.map((integration) => (
-              <div
-                key={integration.name}
-                className="bg-surface-container border border-outline rounded-xl p-6 relative overflow-hidden group hover:border-primary/50 transition-all"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                    <Icon name={integration.icon} className="text-3xl" />
-                  </div>
-                  <span
-                    className={`${integration.badgeClass} text-[10px] font-label-mono px-2 py-1 rounded uppercase`}
-                  >
-                    {integration.badgeLabel}
-                  </span>
+            <div className="bg-surface-container border border-outline rounded-xl p-6 relative overflow-hidden group hover:border-primary/50 transition-all">
+              <div className="flex justify-between items-start mb-4">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <Icon name="sync_alt" className="text-3xl" />
                 </div>
-                <h3 className="font-headline-lg text-on-surface mb-1">{integration.name}</h3>
-                <p className="text-sm text-on-surface-variant mb-6">{integration.description}</p>
-                <div className="flex items-center justify-between mt-auto">
-                  <span className="text-xs text-on-surface-variant font-label-mono">
-                    {integration.lastSync}
-                  </span>
-                  <button
-                    onClick={() => show(`Configure ${integration.name} — integration coming soon.`, 'settings')}
-                    className="text-primary hover:underline text-sm font-bold transition-all"
-                  >
-                    {integration.configLabel}
-                  </button>
-                </div>
-                {integration.hasWatermark && (
-                  <div className="absolute bottom-0 right-0 w-24 h-24 opacity-5 pointer-events-none translate-x-4 translate-y-4">
-                    <Icon name={integration.watermarkIcon} className="text-[80px]" />
-                  </div>
-                )}
+                <span
+                  className={`text-[10px] font-label-mono px-2 py-1 rounded uppercase ${
+                    ghlConnected
+                      ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                      : 'bg-surface-variant text-on-surface-variant border border-outline'
+                  }`}
+                >
+                  {ghlConnected ? 'Connected' : 'Not connected'}
+                </span>
               </div>
-            ))}
+              <h3 className="font-headline-lg text-on-surface mb-1">GoHighLevel</h3>
+              <p className="text-sm text-on-surface-variant mb-6">
+                Omnichannel lead routing and automated workflows. Connection coming in the next
+                release — the pipeline below is live in-app today.
+              </p>
+              <div className="absolute bottom-0 right-0 w-24 h-24 opacity-5 pointer-events-none translate-x-4 translate-y-4">
+                <Icon name="hub" className="text-[80px]" />
+              </div>
+            </div>
+
+            {/* Pipeline value summary — real numbers from the leads table */}
+            <div className="bg-surface-container border border-outline rounded-xl p-6 md:col-span-2 flex flex-col justify-between">
+              <div>
+                <h3 className="font-headline-lg text-on-surface mb-1">Pipeline Summary</h3>
+                <p className="text-sm text-on-surface-variant">
+                  {activeClient.name} — live from the board below.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mt-6">
+                <div>
+                  <p className="text-[10px] font-label-mono uppercase tracking-widest text-on-surface-variant">Leads</p>
+                  <p className="text-2xl font-bold mono-data">{leads.length}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-label-mono uppercase tracking-widest text-on-surface-variant">Pipeline value</p>
+                  <p className="text-2xl font-bold mono-data gold-gradient-text">
+                    {leads.length
+                      ? `$${leads.reduce((a, l) => a + Number(l.value || 0), 0).toLocaleString()}`
+                      : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-label-mono uppercase tracking-widest text-on-surface-variant">In contract</p>
+                  <p className="text-2xl font-bold mono-data">
+                    {leads.filter((l) => l.stage_key === 'contract').length}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Pipeline & Interaction (Asymmetric Split) */}
+          {/* Pipeline & Interaction */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
-
-            {/* Consolidated Pipeline (8 Cols) */}
             <div className="lg:col-span-8 space-y-4">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-headline-lg text-primary">Consolidated Pipeline</h4>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => show('Pipeline filters coming soon.', 'filter_list')}
-                    className="p-2 border border-outline rounded hover:bg-surface-variant transition-colors"
-                  >
-                    <Icon name="filter_list" className="text-sm" />
-                  </button>
-                  <button
-                    onClick={() => show('Pipeline export coming soon.', 'download')}
-                    className="p-2 border border-outline rounded hover:bg-surface-variant transition-colors"
-                  >
-                    <Icon name="download" className="text-sm" />
-                  </button>
-                </div>
+                <h4 className="font-headline-lg text-primary">Pipeline</h4>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {PIPELINE_COLUMNS.map((col) => (
-                  <div key={col.label} className="space-y-4">
-                    <div className="flex items-center gap-2 px-2">
-                      <div className={`w-1 h-4 ${col.dotOpacity} rounded-full`} />
-                      <span className="text-xs font-label-mono uppercase tracking-tighter opacity-60">
-                        {col.label}
-                      </span>
-                    </div>
-
-                    {col.dropZone && (
-                      <div className="border-2 border-dashed border-outline rounded-xl h-32 flex items-center justify-center text-on-surface-variant text-xs font-label-mono">
-                        Drop here to close
-                      </div>
-                    )}
-
-                    {col.cards.map((card) => (
-                      <div
-                        key={card.name}
-                        onClick={() => show(`${card.name} · ${card.source} · ${card.amount}`, 'person')}
-                        className={`bg-surface-container-low border border-outline p-4 rounded-xl space-y-3 hover:scale-[1.02] transition-transform cursor-pointer group${card.opacity ? ` ${card.opacity}` : ''}`}
-                      >
-                        <div className="flex justify-between">
-                          <span
-                            className={`text-[10px] ${card.sourceBadgeClass} px-2 py-0.5 rounded`}
-                          >
-                            {card.source}
-                          </span>
-                          <span className="text-[10px] text-on-surface-variant font-label-mono">
-                            {card.amount}
-                          </span>
-                        </div>
-                        <p className="font-bold text-on-surface">{card.name}</p>
-                        {card.avatar && (
-                          <div className="flex -space-x-2">
-                            <div
-                              className={`w-5 h-5 rounded-full border border-background ${card.avatar.bg} text-[8px] flex items-center justify-center`}
-                            >
-                              {card.avatar.initials}
-                            </div>
-                          </div>
-                        )}
-                        {card.meta && (
-                          <div
-                            className={`flex items-center gap-2 text-[10px] ${card.meta.textClass || 'text-on-surface-variant'}`}
-                          >
-                            <Icon name={card.meta.icon} className="text-xs" />
-                            {card.meta.text}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
+              <LeadBoard
+                onChanged={() => setRefreshKey((k) => k + 1)}
+                refreshKey={refreshKey}
+                createRef={createLeadRef}
+              />
             </div>
 
-            {/* Interaction Stream (4 Cols) */}
-            <div className="lg:col-span-4 bg-surface-container-low border border-outline rounded-xl flex flex-col h-[500px]">
+            {/* Interaction stream — real lead_activities */}
+            <div className="lg:col-span-4 bg-surface-container-low border border-outline rounded-xl flex flex-col h-[560px]">
               <div className="p-6 border-b border-outline flex justify-between items-center">
                 <h4 className="font-bold text-on-surface">Interaction Stream</h4>
-                <span className="text-xs font-label-mono text-primary animate-pulse">Live Feed</span>
+                <span className="text-xs font-label-mono text-on-surface-variant">{activeClient.name}</span>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {INTERACTIONS.map((item, i) => (
-                  <div key={i} className="flex gap-4 relative">
-                    {item.hasConnector && (
-                      <div className="absolute left-4 top-10 bottom-0 w-px bg-outline" />
-                    )}
-                    <div
-                      className={`w-8 h-8 rounded-full ${item.iconBg} flex items-center justify-center ${item.iconColor} shrink-0 z-10`}
-                    >
-                      <Icon name={item.iconName} filled={item.filled} className="text-sm" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-on-surface">
-                        {item.title}{' '}
-                        <span className="font-normal text-on-surface-variant">{item.titleSuffix}</span>
-                      </p>
-                      {item.bodyType === 'italic' && (
-                        <p className="text-xs text-on-surface-variant line-clamp-2 italic">
-                          {item.body}
+              <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                {activities.length === 0 && (
+                  <p className="text-sm text-on-surface-variant text-center py-8 px-4">
+                    No interactions logged yet. Add a lead, then log notes, emails, calls, and
+                    meetings here.
+                  </p>
+                )}
+                {activities.map((item, i) => {
+                  const s = KIND_STYLES[item.kind] || KIND_STYLES.note
+                  return (
+                    <div key={item.id} className="flex gap-4 relative">
+                      {i < activities.length - 1 && (
+                        <div className="absolute left-4 top-10 bottom-0 w-px bg-outline" />
+                      )}
+                      <div
+                        className={`w-8 h-8 rounded-full ${s.bg} flex items-center justify-center ${s.color} shrink-0 z-10`}
+                      >
+                        <Icon name={s.icon} filled className="text-sm" />
+                      </div>
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-sm font-bold text-on-surface capitalize">
+                          {item.kind}{' '}
+                          <span className="font-normal text-on-surface-variant">
+                            — {item.leads?.name || 'lead'}
+                          </span>
                         </p>
-                      )}
-                      {item.bodyType === 'badge' && (
-                        <div className="bg-surface-container px-3 py-2 rounded-lg text-xs text-on-surface-variant border border-outline mt-2">
-                          {item.body}
-                        </div>
-                      )}
-                      <span className="text-[10px] text-on-surface-variant font-label-mono uppercase">
-                        {item.time}
-                      </span>
+                        <p className="text-xs text-on-surface-variant line-clamp-3">{item.body}</p>
+                        <span className="text-[10px] text-on-surface-variant font-label-mono uppercase">
+                          {relTime(item.created_at)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
-              <div className="p-4 border-t border-outline">
-                <button
-                  onClick={() => show('Full interaction history coming soon.', 'history')}
-                  className="w-full py-2 text-xs font-bold text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center gap-1"
-                >
-                  View Full History <Icon name="arrow_forward" className="text-sm" />
-                </button>
-              </div>
+              <ActivityComposer leads={leads} onAdded={() => setRefreshKey((k) => k + 1)} />
             </div>
-
           </div>
         </div>
       </section>
 
-      <Fab icon="add" title="New lead" onClick={() => show('Add a lead — coming soon.', 'add')} />
-      {toast}
+      <Fab icon="add" title="New lead" onClick={() => createLeadRef.current?.()} />
     </>
   )
 }

@@ -1,18 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
 import { useClient } from '../context/ClientContext'
-import { fetchTasks } from '../lib/tasks'
-import { fetchContentPosts } from '../lib/contentBoard'
-
-function relTime(iso) {
-  if (!iso) return ''
-  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
-  const h = Math.round(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.round(h / 24)}d ago`
-}
+import { fetchRecentActivity, relTime } from '../lib/activity'
 
 // Bell menu: the active client's most recently updated tasks + content posts.
 export default function NotificationsMenu() {
@@ -37,17 +26,7 @@ export default function NotificationsMenu() {
     }
     setState('loading')
     try {
-      const [tasks, posts] = await Promise.all([
-        fetchTasks(activeClient.id).catch(() => []),
-        fetchContentPosts(activeClient.id).catch(() => []),
-      ])
-      const merged = [
-        ...tasks.map((t) => ({ id: 't-' + t.id, icon: 'assignment', label: t.title, sub: 'Task', at: t.updated_at })),
-        ...posts.map((p) => ({ id: 'c-' + p.id, icon: 'share', label: p.title, sub: 'Content', at: p.updated_at })),
-      ]
-        .sort((a, b) => (b.at || '').localeCompare(a.at || ''))
-        .slice(0, 6)
-      setItems(merged)
+      setItems(await fetchRecentActivity(activeClient.id, 6))
       setState('ready')
     } catch {
       setState('error')

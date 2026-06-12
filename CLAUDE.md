@@ -35,7 +35,18 @@ The task board persists to Supabase via `@supabase/supabase-js`.
 - **No auth yet**: anon key only, RLS on with permissive policies. Replace those policies with
   auth-scoped ones when login lands.
 - Data access lives in `src/lib/tasks.js` (CRUD + `positionBetween` for drag ordering); pages
-  import from there rather than calling `supabase` directly.
+  import from there rather than calling `supabase` directly. The same lib-module pattern backs
+  leads (`leads.js`), ad campaigns (`adCampaigns.js`), SEO keywords (`seoKeywords.js`), and the
+  shared activity feed (`activity.js`).
+
+## AI generation (Claude API)
+
+Ad copy (Paid Advertising) and captions (Social Media → Generators) generate via the Anthropic
+Messages API through a same-origin `/claude-api` proxy — dev: `vite.config.js` proxy injecting
+`ANTHROPIC_API_KEY` headers; prod: `api/claude.js` (model allowlist + max_tokens cap). The client
+is `src/lib/ai.js` (`generateAdCopy`, `generateCaption`, `fetchMonthUsage`); each generation logs
+a row to `usage_events` (migration 0011), which the Subscription usage card sums for the month.
+Model: `claude-opus-4-8`; no sampling params (removed on 4.7+).
 
 ## Vista Social
 

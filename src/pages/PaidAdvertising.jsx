@@ -16,6 +16,7 @@ import {
   spendByPlatform,
   formatMoney,
 } from '../lib/adCampaigns'
+import { generateAdCopy } from '../lib/ai'
 
 // Where the "Schedule the call now" CTA sends prospects. Swap for the real booking link.
 const BOOKING_URL = 'https://calendly.com/disruptorsmedia/discovery'
@@ -242,6 +243,124 @@ function CampaignModal({ campaign, onClose, onSave, onDelete }) {
   )
 }
 
+// ---- AI Copy Generator -------------------------------------------------------
+const TONES = ['Disruptive', 'Premium', 'Urgent', 'Friendly']
+const COPY_PLATFORMS = ['Meta Ads', 'Google Ads', 'TikTok', 'LinkedIn', 'YouTube']
+
+function CopyGenerator({ clientId, clientName, show }) {
+  const [brief, setBrief] = useState('')
+  const [tone, setTone] = useState('Disruptive')
+  const [platform, setPlatform] = useState('Meta Ads')
+  const [busy, setBusy] = useState(false)
+  const [output, setOutput] = useState('')
+  const [error, setError] = useState('')
+
+  async function generate() {
+    if (!brief.trim() || busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const { text } = await generateAdCopy({ clientId, clientName, platform, tone, brief: brief.trim() })
+      setOutput(text)
+    } catch (e) {
+      setError(e.message ?? String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="bg-surface-container border border-outline rounded-xl p-8 relative overflow-hidden group">
+      <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 blur-3xl group-hover:bg-primary/10 transition-colors duration-700" />
+      <div className="flex items-center gap-3 mb-6">
+        <Icon name="auto_awesome" filled className="text-primary" />
+        <h3 className="font-headline-lg text-headline-lg font-bold">AI Copy Generator</h3>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="font-mono-supply text-label-mono text-on-surface-variant uppercase tracking-widest text-xs">Brief</label>
+            <textarea
+              value={brief}
+              onChange={(e) => setBrief(e.target.value)}
+              rows={3}
+              className="w-full bg-surface-container-low border border-outline focus:border-primary focus:outline-none rounded-lg p-3 font-body-md text-on-surface text-sm"
+              placeholder="E.g. High-conversion hook for a spring teeth-whitening offer…"
+            />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1 space-y-2">
+              <label className="font-mono-supply text-label-mono text-on-surface-variant uppercase tracking-widest text-xs">Tone</label>
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+              >
+                {TONES.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 space-y-2">
+              <label className="font-mono-supply text-label-mono text-on-surface-variant uppercase tracking-widest text-xs">Platform</label>
+              <select
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                className="w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+              >
+                {COPY_PLATFORMS.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={generate}
+            disabled={busy || !brief.trim()}
+            className="w-full py-4 bg-primary text-black font-bold rounded-lg shadow-[0_4px_20px_rgba(191,149,63,0.3)] hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+          >
+            {busy && <Icon name="progress_activity" className="animate-spin" />}
+            {busy ? 'Generating…' : 'Generate Copy Assets'}
+          </button>
+          {error && <p className="text-error text-sm">{error}</p>}
+        </div>
+
+        <div className="border-t lg:border-t-0 lg:border-l border-outline pt-6 lg:pt-0 lg:pl-8">
+          <div className="flex justify-between items-center mb-4">
+            <p className="font-mono-supply text-label-mono text-primary text-xs">OUTPUT</p>
+            {output && (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(output)
+                    show('Copied to clipboard.', 'content_copy')
+                  }}
+                  aria-label="Copy output"
+                >
+                  <Icon name="content_copy" className="text-on-surface-variant cursor-pointer hover:text-white" />
+                </button>
+                <button onClick={generate} disabled={busy} aria-label="Generate again">
+                  <Icon name="refresh" className="text-on-surface-variant cursor-pointer hover:text-white" />
+                </button>
+              </div>
+            )}
+          </div>
+          {output ? (
+            <div className="p-4 bg-background border border-outline rounded-lg text-on-surface font-body-md text-sm whitespace-pre-wrap">
+              {output}
+            </div>
+          ) : (
+            <p className="text-sm text-on-surface-variant border border-dashed border-outline rounded-lg p-6 text-center">
+              Generated copy appears here.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ---- Page -----------------------------------------------------------------------
 export default function PaidAdvertising() {
   const { openNav } = useOutletContext()
@@ -393,23 +512,8 @@ export default function PaidAdvertising() {
           </div>
         </section>
 
-        {/* AI Copy Generator — wires to the Claude API in the next release */}
-        <section className="bg-surface-container border border-outline rounded-xl p-8 relative overflow-hidden group">
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 blur-3xl group-hover:bg-primary/10 transition-colors duration-700" />
-          <div className="flex items-center gap-3 mb-2">
-            <Icon name="auto_awesome" filled className="text-primary" />
-            <h3 className="font-headline-lg text-headline-lg font-bold">AI Copy Generator</h3>
-          </div>
-          <p className="text-sm text-on-surface-variant max-w-xl">
-            Generate platform-tuned ad copy with AI. Coming online in the next release.
-          </p>
-          <button
-            onClick={() => show('AI generation comes online in the next release.', 'auto_awesome')}
-            className="mt-4 px-5 py-2.5 rounded-lg border border-outline text-on-surface-variant text-sm font-bold cursor-not-allowed opacity-70"
-          >
-            Generate Copy Assets
-          </button>
-        </section>
+        {/* AI Copy Generator — live via the Claude API */}
+        <CopyGenerator clientId={activeClient.id} clientName={activeClient.name} show={show} />
 
         {/* Campaigns — real CRUD */}
         <section className="bg-surface-container border border-outline rounded-xl overflow-hidden">

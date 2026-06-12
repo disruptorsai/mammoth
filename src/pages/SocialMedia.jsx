@@ -7,8 +7,155 @@ import ContentBoard from '../components/ContentBoard'
 import { getProfiles, networkStyle } from '../lib/vistaSocial'
 import { getClientSocialSnapshot, postsPerDay } from '../lib/socialStats'
 import { useClient } from '../context/ClientContext'
+import { generateCaption } from '../lib/ai'
+import { createContentPost, positionBetween } from '../lib/contentBoard'
 
-const SUB_TABS = ['Dashboard', 'Board']
+const SUB_TABS = ['Dashboard', 'Board', 'Generators']
+
+// ---- AI Caption Generator (Generators tab) -----------------------------------
+const CAPTION_CHANNELS = ['Instagram', 'Facebook', 'LinkedIn', 'TikTok', 'X / Twitter', 'YouTube']
+
+function CaptionGenerator({ client }) {
+  const [topic, setTopic] = useState('')
+  const [channel, setChannel] = useState('Instagram')
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [output, setOutput] = useState('')
+  const [error, setError] = useState('')
+  const [sentMsg, setSentMsg] = useState('')
+
+  async function generate() {
+    if (!topic.trim() || busy) return
+    setBusy(true)
+    setError('')
+    setSentMsg('')
+    try {
+      const { text } = await generateCaption({
+        clientId: client.id,
+        clientName: client.name,
+        channel,
+        topic: topic.trim(),
+        toneNotes: notes.trim(),
+      })
+      setOutput(text)
+    } catch (e) {
+      setError(e.message ?? String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function sendToBoard() {
+    if (!output || sending) return
+    setSending(true)
+    setError('')
+    try {
+      await createContentPost(
+        client.id,
+        'idea',
+        { title: topic.trim().slice(0, 80), caption: output, channel },
+        positionBetween(null, null),
+      )
+      setSentMsg('Added to the content board (Idea column).')
+    } catch (e) {
+      setError(e.message ?? String(e))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+      <div className="bg-surface-container border border-outline rounded-xl p-8 space-y-5">
+        <div className="flex items-center gap-3">
+          <Icon name="auto_awesome" filled className="text-primary" />
+          <h3 className="font-headline-lg text-headline-lg text-white">AI Caption Generator</h3>
+        </div>
+        <div className="space-y-2">
+          <label className="font-label-mono text-[12px] uppercase text-on-surface-variant tracking-wider">Topic</label>
+          <textarea
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            rows={3}
+            placeholder={`What should ${client.name} post about?`}
+            className="w-full bg-surface-container-low border border-outline rounded-xl p-4 text-sm focus:outline-none focus:border-primary resize-none"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="font-label-mono text-[12px] uppercase text-on-surface-variant">Channel</label>
+            <select
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              className="w-full bg-surface-container-low border border-outline rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+            >
+              {CAPTION_CHANNELS.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="font-label-mono text-[12px] uppercase text-on-surface-variant">Tone / notes</label>
+            <input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="optional"
+              className="w-full bg-surface-container-low border border-outline rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+            />
+          </div>
+        </div>
+        <button
+          onClick={generate}
+          disabled={busy || !topic.trim()}
+          className="w-full bg-primary-container text-on-primary-container py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg glow-gold uppercase tracking-widest text-sm disabled:opacity-50"
+        >
+          {busy ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="auto_awesome" />}
+          {busy ? 'Generating…' : 'Generate Caption'}
+        </button>
+        {error && <p className="text-error text-sm">{error}</p>}
+      </div>
+
+      <div className="bg-surface-container border border-outline rounded-xl p-8 flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <p className="font-label-mono text-label-mono text-primary text-xs uppercase">Output</p>
+          {output && (
+            <button onClick={generate} disabled={busy} aria-label="Generate again">
+              <Icon name="refresh" className="text-on-surface-variant hover:text-white" />
+            </button>
+          )}
+        </div>
+        {output ? (
+          <>
+            <div className="flex-1 p-4 bg-background border border-outline rounded-xl text-sm whitespace-pre-wrap overflow-y-auto custom-scrollbar">
+              {output}
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => navigator.clipboard?.writeText(output)}
+                className="flex-1 py-2.5 border border-outline rounded-xl text-sm font-bold hover:border-primary transition-colors"
+              >
+                Copy
+              </button>
+              <button
+                onClick={sendToBoard}
+                disabled={sending}
+                className="flex-1 py-2.5 gold-gradient text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {sending ? 'Sending…' : 'Send to Content Board'}
+              </button>
+            </div>
+            {sentMsg && <p className="text-primary text-sm mt-2">{sentMsg}</p>}
+          </>
+        ) : (
+          <p className="flex-1 flex items-center justify-center text-sm text-on-surface-variant border border-dashed border-outline rounded-xl text-center px-8">
+            Generated captions appear here — ready to copy or push straight to the content board.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function SocialMedia() {
   const { openNav } = useOutletContext()
@@ -98,6 +245,8 @@ export default function SocialMedia() {
           <div className="bento-grid">
             <ContentBoard />
           </div>
+        ) : activeTab === 'Generators' ? (
+          <CaptionGenerator client={activeClient} />
         ) : (
           <>
 
@@ -323,18 +472,23 @@ export default function SocialMedia() {
           {/* Content Calendar — live from Vista Social */}
           <ContentCalendar />
 
-          {/* AI Content Generator — comes online with the AI release */}
+          {/* AI Content Generator — lives in the Generators tab */}
           <div className="col-span-12 lg:col-span-5 bg-surface-container border border-outline rounded-xl p-8 flex flex-col justify-center items-center text-center gap-4">
             <div className="w-12 h-12 rounded-xl gold-gradient flex items-center justify-center">
               <Icon name="auto_awesome" filled className="text-black" />
             </div>
             <div>
-              <h3 className="font-headline-lg text-headline-lg text-white mb-1">AI Content Generator</h3>
+              <h3 className="font-headline-lg text-headline-lg text-white mb-1">AI Caption Generator</h3>
               <p className="text-on-surface-variant text-sm max-w-xs">
-                Generate captions and creative with AI, straight into the content board. Coming
-                online in the next release.
+                Generate platform-tuned captions with AI and push them straight to the content board.
               </p>
             </div>
+            <button
+              onClick={() => setActiveTab('Generators')}
+              className="gold-gradient text-black font-bold px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity text-sm"
+            >
+              Open Generator
+            </button>
           </div>
 
         </div>

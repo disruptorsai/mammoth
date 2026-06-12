@@ -6,6 +6,15 @@ import { useToast } from '../components/Toast'
 import { useClient } from '../context/ClientContext'
 import { useAuth } from '../context/AuthContext'
 import { updateClient } from '../lib/clients'
+import { fetchMonthUsage } from '../lib/ai'
+
+const PLAN_TOKENS = { growth: 2_000_000, scale: 6_000_000, mammoth: 20_000_000 }
+
+function fmtTokens(n) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 ? 1 : 0)}M`
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`
+  return String(n)
+}
 
 // Plan offerings (display; live billing wires up with Stripe — final prices
 // pending). `key` matches the clients.plan check constraint.
@@ -47,11 +56,19 @@ export default function Subscription() {
   const [billingEmail, setBillingEmail] = useState(activeClient.billingEmail || '')
   const [phone, setPhone] = useState(activeClient.phone || '')
   const [savingProfile, setSavingProfile] = useState(false)
+  const [usage, setUsage] = useState(null) // { total, events } | null while loading
 
   useEffect(() => {
     setBillingEmail(activeClient.billingEmail || '')
     setPhone(activeClient.phone || '')
   }, [activeClient.id, activeClient.billingEmail, activeClient.phone])
+
+  useEffect(() => {
+    setUsage(null)
+    fetchMonthUsage(activeClient.id)
+      .then(setUsage)
+      .catch(() => setUsage({ total: 0, events: 0 }))
+  }, [activeClient.id])
 
   const currentPlan = PLANS.find((p) => p.key === activeClient.plan) ?? null
   const profileDirty =
@@ -109,21 +126,39 @@ export default function Subscription() {
               </div>
             </div>
             <div>
-              <div className="flex items-end justify-between mb-3">
-                <p className="text-4xl font-bold mono-data">
-                  0 <span className="text-on-surface-variant text-lg font-normal">
-                    / {currentPlan ? currentPlan.tokens.replace(' tokens', '') : '—'}
-                  </span>
-                </p>
-                <p className="text-sm text-on-surface-variant font-label-mono">No usage recorded yet</p>
-              </div>
-              <div className="w-full h-3 bg-surface-variant rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: '0%' }} />
-              </div>
-              <p className="text-xs text-on-surface-variant mt-3">
-                Usage metering starts when AI generation comes online — every blog, image, and ad
-                copy run will count here. Resets on the 1st.
-              </p>
+              {(() => {
+                const used = usage?.total ?? 0
+                const allowance = currentPlan ? PLAN_TOKENS[currentPlan.key] : null
+                const pct = allowance ? Math.min(100, Math.round((used / allowance) * 100)) : 0
+                return (
+                  <>
+                    <div className="flex items-end justify-between mb-3">
+                      <p className="text-4xl font-bold mono-data">
+                        {usage === null ? '…' : fmtTokens(used)}{' '}
+                        <span className="text-on-surface-variant text-lg font-normal">
+                          / {allowance ? fmtTokens(allowance) : '—'}
+                        </span>
+                      </p>
+                      <p className="text-sm text-on-surface-variant font-label-mono">
+                        {usage === null
+                          ? 'Loading…'
+                          : usage.events === 0
+                            ? 'No usage recorded yet'
+                            : `${usage.events} generation${usage.events === 1 ? '' : 's'} this month${allowance ? ` · ${pct}%` : ''}`}
+                      </p>
+                    </div>
+                    <div className="w-full h-3 bg-surface-variant rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full shadow-[0_0_12px_#eec065]"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-3">
+                      Tokens are consumed by AI generation (ad copy, captions). Resets on the 1st.
+                    </p>
+                  </>
+                )
+              })()}
             </div>
           </div>
 

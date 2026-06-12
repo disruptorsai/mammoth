@@ -5,6 +5,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/vista-mcp", "destination": "/api/vista-mcp" },
+    { "source": "/claude-api", "destination": "/api/claude" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

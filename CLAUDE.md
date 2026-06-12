@@ -48,6 +48,18 @@ is `src/lib/ai.js` (`generateAdCopy`, `generateCaption`, `fetchMonthUsage`); eac
 a row to `usage_events` (migration 0011), which the Subscription usage card sums for the month.
 Model: `claude-opus-4-8`; no sampling params (removed on 4.7+).
 
+## GoHighLevel
+
+The CRM page can sync a client's GHL opportunities into the local `leads` table (read-only:
+local drags don't write back). Same proxy pattern: browser calls `/ghl-api/<path>` — dev proxy in
+`vite.config.js`, prod `api/ghl.js` (GET-only, path allowlist) — with `GHL_API_KEY` injected
+server-side (Private Integration token by default; set `GHL_AUTH_MODE=v1` for a legacy key).
+Client lib: `src/lib/ghl.js` (`pingGhl`, `fetchPipelines`, `fetchOpportunities`,
+`syncLeadsFromGhl` — upserts on `(client_id, external_id)`, maps GHL stages onto the 4 local
+stages by relative position, 'won' → contract). Per-client `ghl_location_id` +
+`ghl_last_synced_at` live on `clients` (migration 0012) and are set in-app (admin → CRM →
+Settings on the GHL card).
+
 ## Vista Social
 
 The Social Media tab pulls live channels and scheduled/published posts from Vista Social.

@@ -5,8 +5,12 @@ import Fab from '../components/Fab'
 import Icon from '../components/Icon'
 import LeadBoard from '../components/LeadBoard'
 import { useClient } from '../context/ClientContext'
+import { useAuth } from '../context/AuthContext'
 import { fetchLeads, fetchClientActivities, addLeadActivity, ACTIVITY_KINDS } from '../lib/leads'
 import { relTime } from '../lib/activity'
+import { syncLeadsFromGhl } from '../lib/ghl'
+import { updateClient } from '../lib/clients'
+import { useToast } from '../components/Toast'
 
 const KIND_STYLES = {
   note: { icon: 'sticky_note_2', bg: 'bg-primary/20', color: 'text-primary' },
@@ -95,10 +99,15 @@ function ActivityComposer({ leads, onAdded }) {
 
 export default function Crm() {
   const { openNav } = useOutletContext()
-  const { activeClient } = useClient()
+  const { activeClient, reload: reloadClients } = useClient()
+  const { isAdmin } = useAuth()
+  const { show, node: toast } = useToast()
   const [activities, setActivities] = useState([])
   const [leads, setLeads] = useState([])
   const [refreshKey, setRefreshKey] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+  const [showGhlSettings, setShowGhlSettings] = useState(false)
+  const [locationDraft, setLocationDraft] = useState('')
   const createLeadRef = useRef(null)
 
   const reloadSide = useCallback(async () => {
@@ -115,7 +124,34 @@ export default function Crm() {
     reloadSide()
   }, [reloadSide, refreshKey])
 
-  const ghlConnected = false // becomes real in the GHL integration phase
+  const ghlConnected = Boolean(activeClient.ghlLocationId)
+
+  async function runSync() {
+    if (syncing) return
+    setSyncing(true)
+    try {
+      const r = await syncLeadsFromGhl(activeClient)
+      await reloadClients()
+      setRefreshKey((k) => k + 1)
+      show(`GHL sync complete — ${r.created} new, ${r.updated} updated.`, 'sync')
+    } catch (e) {
+      show(e.message ?? String(e), 'error')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  async function saveGhlSettings(e) {
+    e.preventDefault()
+    try {
+      await updateClient(activeClient.id, { ghl_location_id: locationDraft.trim() })
+      await reloadClients()
+      setShowGhlSettings(false)
+      show(locationDraft.trim() ? 'GHL location linked.' : 'GHL location cleared.', 'check_circle')
+    } catch (err) {
+      show(err.message ?? String(err), 'error')
+    }
+  }
 
   return (
     <>
@@ -142,10 +178,43 @@ export default function Crm() {
                 </span>
               </div>
               <h3 className="font-headline-lg text-on-surface mb-1">GoHighLevel</h3>
-              <p className="text-sm text-on-surface-variant mb-6">
-                Omnichannel lead routing and automated workflows. Connection coming in the next
-                release — the pipeline below is live in-app today.
+              <p className="text-sm text-on-surface-variant mb-4">
+                {ghlConnected
+                  ? 'Pulls this client’s opportunities into the pipeline below (read-only sync — local drags don’t write back yet).'
+                  : 'Link this client’s GHL location to pull their opportunities into the pipeline below.'}
               </p>
+              <div className="flex items-center justify-between gap-2 relative z-10">
+                <span className="text-xs text-on-surface-variant font-label-mono">
+                  {activeClient.ghlLastSyncedAt
+                    ? `Last sync: ${relTime(activeClient.ghlLastSyncedAt)}`
+                    : ghlConnected
+                      ? 'Never synced'
+                      : ''}
+                </span>
+                <div className="flex gap-3">
+                  {ghlConnected && (
+                    <button
+                      onClick={runSync}
+                      disabled={syncing}
+                      className="text-primary hover:underline text-sm font-bold transition-all flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <Icon name="sync" className={`text-base ${syncing ? 'animate-spin' : ''}`} />
+                      {syncing ? 'Syncing…' : 'Sync now'}
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setLocationDraft(activeClient.ghlLocationId || '')
+                        setShowGhlSettings(true)
+                      }}
+                      className="text-on-surface-variant hover:text-primary text-sm font-bold transition-all"
+                    >
+                      Settings
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="absolute bottom-0 right-0 w-24 h-24 opacity-5 pointer-events-none translate-x-4 translate-y-4">
                 <Icon name="hub" className="text-[80px]" />
               </div>
@@ -244,7 +313,63 @@ export default function Crm() {
         </div>
       </section>
 
+      {showGhlSettings && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowGhlSettings(false)}
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={saveGhlSettings}
+            className="bg-surface-container border border-outline rounded-xl w-full max-w-md p-6 space-y-4 animate-fade-in-up"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-headline-lg text-xl text-primary">GoHighLevel Settings</h3>
+              <button
+                type="button"
+                onClick={() => setShowGhlSettings(false)}
+                className="text-on-surface-variant hover:text-primary"
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+            <label className="block">
+              <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">
+                Location ID for {activeClient.name}
+              </span>
+              <input
+                autoFocus
+                value={locationDraft}
+                onChange={(e) => setLocationDraft(e.target.value)}
+                placeholder="e.g. ve9EPM428h8vShlRW1KT"
+                className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary font-label-mono"
+              />
+              <span className="mt-1.5 block text-[11px] text-on-surface-variant">
+                GHL → the sub-account’s Settings → Business Profile. Leave empty to disconnect. The
+                agency API key lives in the server env (GHL_API_KEY), not here.
+              </span>
+            </label>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowGhlSettings(false)}
+                className="px-4 py-2 rounded-lg border border-outline text-sm hover:border-primary transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="gold-gradient text-black font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <Fab icon="add" title="New lead" onClick={() => createLeadRef.current?.()} />
+      {toast}
     </>
   )
 }

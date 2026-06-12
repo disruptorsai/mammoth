@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const VISTA_KEY = env.VISTA_SOCIAL_API_KEY || ''
   const ANTHROPIC_KEY = env.ANTHROPIC_API_KEY || ''
+  const GHL_KEY = env.GHL_API_KEY || ''
+  const GHL_V1 = env.GHL_AUTH_MODE === 'v1'
 
   return {
     plugins: [react()],
@@ -37,6 +39,18 @@ export default defineConfig(({ mode }) => {
           headers: {
             'x-api-key': ANTHROPIC_KEY,
             'anthropic-version': '2023-06-01',
+          },
+        },
+        // GoHighLevel: /ghl-api/<path> forwards with the key injected (prod
+        // equivalent: api/ghl.js with a path allowlist).
+        '/ghl-api': {
+          target: GHL_V1 ? 'https://rest.gohighlevel.com' : 'https://services.leadconnectorhq.com',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/ghl-api/, GHL_V1 ? '/v1' : ''),
+          headers: {
+            Authorization: `Bearer ${GHL_KEY}`,
+            ...(GHL_V1 ? {} : { Version: '2021-07-28' }),
           },
         },
       },

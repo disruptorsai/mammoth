@@ -11,6 +11,8 @@ function normalize(row) {
     phone: row.phone ?? '',
     plan: row.plan ?? null,
     vistaGroupId: row.vista_group_id ?? null,
+    ghlLocationId: row.ghl_location_id ?? '',
+    ghlLastSyncedAt: row.ghl_last_synced_at ?? null,
   }
 }
 

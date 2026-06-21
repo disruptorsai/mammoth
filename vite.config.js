@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { handleContentAgent } from './api/_contentAgentCore.js'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -9,9 +10,40 @@ export default defineConfig(({ mode }) => {
   const ANTHROPIC_KEY = env.ANTHROPIC_API_KEY || ''
   const GHL_KEY = env.GHL_API_KEY || ''
   const GHL_V1 = env.GHL_AUTH_MODE === 'v1'
+  const CA_ENV = {
+    CONTENT_AGENT_SUPABASE_URL: env.CONTENT_AGENT_SUPABASE_URL || '',
+    CONTENT_AGENT_SERVICE_ROLE_KEY: env.CONTENT_AGENT_SERVICE_ROLE_KEY || '',
+  }
+
+  // Dev equivalent of api/content-agent.js — runs the SAME shared core so the
+  // service-role key stays server-side and behaviour matches prod.
+  const contentAgentDevApi = {
+    name: 'content-agent-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/content-agent-api', async (req, res) => {
+        try {
+          const u = new URL(req.url, 'http://localhost')
+          const params = Object.fromEntries(u.searchParams.entries())
+          const { status, body } = await handleContentAgent({
+            resource: params.resource || '',
+            clientId: params.clientId || '',
+            params,
+            env: CA_ENV,
+          })
+          res.statusCode = status
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(body))
+        } catch (e) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'middleware_failed', message: String(e?.message || e) }))
+        }
+      })
+    },
+  }
 
   return {
-    plugins: [react()],
+    plugins: [react(), contentAgentDevApi],
     server: {
       port: 5173,
       open: true,

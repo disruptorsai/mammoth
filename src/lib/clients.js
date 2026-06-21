@@ -7,6 +7,9 @@ function normalize(row) {
     initials: row.initials || row.name.slice(0, 2).toUpperCase(),
     health: row.health ?? 75,
     features: row.features ?? { internal: true },
+    // Link to the matching client in the Content Agent (SEO/GEO) app, if set.
+    // Stored inside the features jsonb so no schema migration is required.
+    contentAgentClientId: row.features?.contentAgentClientId ?? null,
     billingEmail: row.billing_email ?? '',
     phone: row.phone ?? '',
     plan: row.plan ?? null,
@@ -47,6 +50,16 @@ export async function createClient({ id, name, initials, health, features }) {
     .single()
   if (error) throw error
   return normalize(data)
+}
+
+// Link (or unlink, pass null) a Mammoth client to a Content Agent client UUID.
+// Persisted in the features jsonb to avoid a schema migration. Admin-only
+// (the clients UPDATE policy is admin-scoped server-side).
+export async function setContentAgentLink(client, contentAgentClientId) {
+  const features = { ...(client.features ?? { internal: true }) }
+  if (contentAgentClientId) features.contentAgentClientId = contentAgentClientId
+  else delete features.contentAgentClientId
+  return updateClient(client.id, { features })
 }
 
 // Delete a client and ALL their data in OUR database (admin-only, enforced in

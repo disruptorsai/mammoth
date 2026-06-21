@@ -134,6 +134,27 @@ export async function requestDraftGeneration({ clientId, contentType, topic }) {
   return body
 }
 
+// Trigger a native SEO job (keyword research / site analysis / SEO report).
+async function postJob(payload) {
+  const res = await fetch('/api/seo-job', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  let body = null
+  try {
+    body = await res.json()
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok) throw new Error(body?.message || `Job failed (${res.status}).`)
+  return body
+}
+
+export const requestKeywordResearch = (clientId, keyword) => postJob({ action: 'keyword', clientId, keyword })
+export const requestSiteAnalysis = (clientId, domain) => postJob({ action: 'site', clientId, domain })
+export const requestSeoReport = (clientId, domain) => postJob({ action: 'report', clientId, domain })
+
 export async function fetchCaClients() {
   let res
   try {

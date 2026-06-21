@@ -7,6 +7,7 @@
 // env the core needs). Register the app by pointing Inngest at /api/inngest.
 import { Inngest } from 'inngest'
 import { generateDraft, makeServiceClient } from './_seoGenerateCore.js'
+import { researchKeyword, runSiteAnalysis, runSeoReport } from './_seoJobsCore.js'
 
 export const inngest = new Inngest({ id: 'mission-control' })
 
@@ -37,4 +38,30 @@ export const generateContentFailed = inngest.createFunction(
   },
 )
 
-export const functions = [generateContent, generateContentFailed]
+// Keyword research (DataForSEO).
+export const keywordResearch = inngest.createFunction(
+  { id: 'keyword-research', concurrency: { key: 'event.data.clientId', limit: 5 } },
+  { event: 'keyword/research.requested' },
+  async ({ event, step }) =>
+    step.run('research', () => researchKeyword({ env: process.env, clientId: event.data.clientId, keyword: event.data.keyword })),
+)
+
+// Site analysis (DataForSEO rankings + Claude strategy).
+export const siteAnalysis = inngest.createFunction(
+  { id: 'site-analysis', concurrency: { key: 'event.data.clientId', limit: 2 } },
+  { event: 'site/analysis.requested' },
+  async ({ event, step }) =>
+    step.run('analyze', () =>
+      runSiteAnalysis({ env: process.env, clientId: event.data.clientId, domain: event.data.domain, analysisId: event.data.analysisId }),
+    ),
+)
+
+// SEO report (PageSpeed Insights + Claude synthesis).
+export const seoReport = inngest.createFunction(
+  { id: 'seo-report', concurrency: { key: 'event.data.clientId', limit: 2 } },
+  { event: 'seo/report.requested' },
+  async ({ event, step }) =>
+    step.run('report', () => runSeoReport({ env: process.env, clientId: event.data.clientId, domain: event.data.domain })),
+)
+
+export const functions = [generateContent, generateContentFailed, keywordResearch, siteAnalysis, seoReport]

@@ -18,7 +18,7 @@ const PRICING = {
   'claude-opus-4-8': { in: 15, out: 75 },
   'claude-haiku-4-5': { in: 1, out: 5 },
 }
-function costCents(model, inTok, outTok) {
+export function costCents(model, inTok, outTok) {
   const p = PRICING[model] || PRICING[DEFAULT_MODEL]
   return Math.round((inTok / 1e6) * p.in * 100 + (outTok / 1e6) * p.out * 100)
 }
@@ -65,7 +65,7 @@ function buildSystemPrompt({ brandName, contentType, voice, kb }) {
   return parts.join('\n\n')
 }
 
-async function callClaude({ apiKey, model, system, user }) {
+export async function callClaude({ apiKey, model, system, user }) {
   const started = Date.now()
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',

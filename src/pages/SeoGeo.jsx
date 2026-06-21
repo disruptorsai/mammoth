@@ -14,6 +14,9 @@ import {
   fetchSeoReports,
   fetchSiteAnalysis,
   requestDraftGeneration,
+  requestKeywordResearch,
+  requestSiteAnalysis,
+  requestSeoReport,
   isNotConfigured,
   draftStatusStyle,
   prettyStatus,
@@ -393,16 +396,71 @@ function DraftsTab({ clientId }) {
 
 // --- tab: Keywords ----------------------------------------------------------
 
-function KeywordsTab({ clientId }) {
-  const { data, loading, error } = useResource(() => fetchCaKeywords(clientId), [clientId])
+// Inline "run a job" control: a text input + action button with busy/error state.
+function JobRunner({ label, placeholder, buttonText, icon, initialValue = '', onRun }) {
+  const [value, setValue] = useState(initialValue)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  async function run(e) {
+    e.preventDefault()
+    if (!value.trim() || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onRun(value.trim())
+    } catch (e2) {
+      setError(e2.message ?? String(e2))
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
-    <div className="bento-card rounded-xl overflow-hidden">
+    <form onSubmit={run} className="bento-card rounded-xl p-4 space-y-2">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+        <label className="flex-1 block">
+          <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">{label}</span>
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={placeholder}
+            className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy || !value.trim()}
+          className="shrink-0 gold-gradient text-black font-bold px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <Icon name={busy ? 'progress_activity' : icon} className={`text-base ${busy ? 'animate-spin' : ''}`} />
+          {busy ? 'Working…' : buttonText}
+        </button>
+      </div>
+      {error && <p className="text-sm text-error">{error}</p>}
+    </form>
+  )
+}
+
+function KeywordsTab({ clientId }) {
+  const { data, loading, error, reload } = useResource(() => fetchCaKeywords(clientId), [clientId])
+  return (
+    <div className="space-y-4">
+      <JobRunner
+        label="Research a keyword"
+        placeholder="e.g. ai automation for small business"
+        buttonText="Research"
+        icon="travel_explore"
+        onRun={async (keyword) => {
+          await requestKeywordResearch(clientId, keyword)
+          await reload()
+        }}
+      />
+      <div className="bento-card rounded-xl overflow-hidden">
       <CaBoundary
         loading={loading}
         error={error}
         empty={data && data.rows.length === 0}
         emptyTitle="No keyword research yet"
-        emptyHint="Run keyword research in the Content Agent to populate this list."
+        emptyHint="Research a keyword above to populate this list."
       >
         {data && data.rows.length > 0 && (
           <div className="overflow-x-auto">
@@ -433,6 +491,7 @@ function KeywordsTab({ clientId }) {
           </div>
         )}
       </CaBoundary>
+      </div>
     </div>
   )
 }
@@ -440,15 +499,27 @@ function KeywordsTab({ clientId }) {
 // --- tab: SEO Reports -------------------------------------------------------
 
 function ReportsTab({ clientId }) {
-  const { data, loading, error } = useResource(() => fetchSeoReports(clientId), [clientId])
+  const { data, loading, error, reload } = useResource(() => fetchSeoReports(clientId), [clientId])
   return (
-    <div className="bento-card rounded-xl overflow-hidden">
+    <div className="space-y-4">
+      <JobRunner
+        label="Run a PageSpeed / SEO report for a domain"
+        placeholder="e.g. disruptorsmedia.com"
+        buttonText="Run report"
+        icon="assessment"
+        initialValue={data?.website || ''}
+        onRun={async (domain) => {
+          await requestSeoReport(clientId, domain)
+          await reload()
+        }}
+      />
+      <div className="bento-card rounded-xl overflow-hidden">
       <CaBoundary
         loading={loading}
         error={error}
         empty={data && data.reports.length === 0}
         emptyTitle="No SEO reports yet"
-        emptyHint="Generate a report in the Content Agent to see audit history here."
+        emptyHint="Run a report above to see audit history here."
       >
         {data && data.reports.length > 0 && (
           <ul className="divide-y divide-outline">
@@ -470,6 +541,7 @@ function ReportsTab({ clientId }) {
           </ul>
         )}
       </CaBoundary>
+      </div>
     </div>
   )
 }
@@ -477,18 +549,30 @@ function ReportsTab({ clientId }) {
 // --- tab: Site Analysis -----------------------------------------------------
 
 function AnalysisTab({ clientId }) {
-  const { data, loading, error } = useResource(() => fetchSiteAnalysis(clientId), [clientId])
+  const { data, loading, error, reload } = useResource(() => fetchSiteAnalysis(clientId), [clientId])
   const a = data?.analysis
   const { summary, items } = flattenRecommendations(a?.recommendations)
   const rankings = Array.isArray(a?.current_rankings) ? a.current_rankings : []
   return (
-    <div className="bento-card rounded-xl">
+    <div className="space-y-4">
+      <JobRunner
+        label="Run a site analysis for a domain"
+        placeholder="e.g. disruptorsmedia.com"
+        buttonText="Run analysis"
+        icon="query_stats"
+        initialValue={data?.website || a?.domain || ''}
+        onRun={async (domain) => {
+          await requestSiteAnalysis(clientId, domain)
+          await reload()
+        }}
+      />
+      <div className="bento-card rounded-xl">
       <CaBoundary
         loading={loading}
         error={error}
         empty={data && !a}
         emptyTitle="No site analysis yet"
-        emptyHint="Run a site analysis in the Content Agent to see rankings and recommendations."
+        emptyHint="Run a site analysis above to see rankings and recommendations."
       >
         {a && (
           <div className="p-6 space-y-6">
@@ -545,6 +629,7 @@ function AnalysisTab({ clientId }) {
           </div>
         )}
       </CaBoundary>
+      </div>
     </div>
   )
 }

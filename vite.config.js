@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { handleContentAgent } from './api/_contentAgentCore.js'
 import { generateDraft } from './api/_seoGenerateCore.js'
+import { researchKeyword, runSiteAnalysis, runSeoReport } from './api/_seoJobsCore.js'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -20,6 +21,9 @@ export default defineConfig(({ mode }) => {
     VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || '',
     SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY || '',
     ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY || '',
+    DATAFORSEO_DEFAULT_LOGIN: env.DATAFORSEO_DEFAULT_LOGIN || '',
+    DATAFORSEO_DEFAULT_PASSWORD: env.DATAFORSEO_DEFAULT_PASSWORD || '',
+    GOOGLE_PSI_KEY: env.GOOGLE_PSI_KEY || '',
   }
 
   // Dev equivalent of api/content-agent.js — runs the SAME shared core so the
@@ -83,8 +87,39 @@ export default defineConfig(({ mode }) => {
     },
   }
 
+  // Dev equivalent of api/seo-job.js — runs the SEO job cores inline.
+  const seoJobDevApi = {
+    name: 'seo-job-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api/seo-job', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'method_not_allowed' }))
+          return
+        }
+        try {
+          let raw = ''
+          for await (const chunk of req) raw += chunk
+          const body = raw ? JSON.parse(raw) : {}
+          let result
+          if (body.action === 'keyword') result = await researchKeyword({ env: GEN_ENV, clientId: body.clientId, keyword: body.keyword })
+          else if (body.action === 'site') result = await runSiteAnalysis({ env: GEN_ENV, clientId: body.clientId, domain: body.domain })
+          else if (body.action === 'report') result = await runSeoReport({ env: GEN_ENV, clientId: body.clientId, domain: body.domain })
+          else throw new Error('unknown action')
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ ...result, async: false }))
+        } catch (e) {
+          res.statusCode = 502
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'job_failed', message: String(e?.message || e) }))
+        }
+      })
+    },
+  }
+
   return {
-    plugins: [react(), contentAgentDevApi, seoGenerateDevApi],
+    plugins: [react(), contentAgentDevApi, seoGenerateDevApi, seoJobDevApi],
     server: {
       port: 5173,
       open: true,

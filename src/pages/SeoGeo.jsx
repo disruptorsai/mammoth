@@ -126,8 +126,8 @@ function Card({ title, children, action }) {
 
 // --- tab: Dashboard ---------------------------------------------------------
 
-function DashboardTab({ caClientId }) {
-  const { data, loading, error } = useResource(() => fetchDashboard(caClientId), [caClientId])
+function DashboardTab({ clientId }) {
+  const { data, loading, error } = useResource(() => fetchDashboard(clientId), [clientId])
   const spend = useMemo(
     () => (data?.usage ?? []).reduce((s, u) => s + (u.cost_cents || 0), 0),
     [data],
@@ -240,11 +240,11 @@ function DashboardTab({ caClientId }) {
 
 const DRAFT_FILTERS = ['all', 'pending_approval', 'needs_revision', 'approved', 'published', 'failed']
 
-function DraftsTab({ caClientId }) {
+function DraftsTab({ clientId }) {
   const [filter, setFilter] = useState('all')
   const { data, loading, error } = useResource(
-    () => fetchDrafts(caClientId, filter),
-    [caClientId, filter],
+    () => fetchDrafts(clientId, filter),
+    [clientId, filter],
   )
   const counts = data?.counts ?? {}
 
@@ -316,8 +316,8 @@ function DraftsTab({ caClientId }) {
 
 // --- tab: Keywords ----------------------------------------------------------
 
-function KeywordsTab({ caClientId }) {
-  const { data, loading, error } = useResource(() => fetchCaKeywords(caClientId), [caClientId])
+function KeywordsTab({ clientId }) {
+  const { data, loading, error } = useResource(() => fetchCaKeywords(clientId), [clientId])
   return (
     <div className="bento-card rounded-xl overflow-hidden">
       <CaBoundary
@@ -362,8 +362,8 @@ function KeywordsTab({ caClientId }) {
 
 // --- tab: SEO Reports -------------------------------------------------------
 
-function ReportsTab({ caClientId }) {
-  const { data, loading, error } = useResource(() => fetchSeoReports(caClientId), [caClientId])
+function ReportsTab({ clientId }) {
+  const { data, loading, error } = useResource(() => fetchSeoReports(clientId), [clientId])
   return (
     <div className="bento-card rounded-xl overflow-hidden">
       <CaBoundary
@@ -399,8 +399,8 @@ function ReportsTab({ caClientId }) {
 
 // --- tab: Site Analysis -----------------------------------------------------
 
-function AnalysisTab({ caClientId }) {
-  const { data, loading, error } = useResource(() => fetchSiteAnalysis(caClientId), [caClientId])
+function AnalysisTab({ clientId }) {
+  const { data, loading, error } = useResource(() => fetchSiteAnalysis(clientId), [clientId])
   const a = data?.analysis
   const { summary, items } = flattenRecommendations(a?.recommendations)
   const rankings = Array.isArray(a?.current_rankings) ? a.current_rankings : []
@@ -703,7 +703,10 @@ export default function SeoGeo() {
   const { isAdmin } = useAuth()
   const [tab, setTab] = useState('dashboard')
 
-  const caClientId = activeClient?.contentAgentClientId || ''
+  // Data is keyed by the Mammoth slug in our own DB; the link to a Content Agent
+  // workspace only governs whether data has been imported for this client.
+  const linkedCaId = activeClient?.contentAgentClientId || ''
+  const slug = activeClient?.id || ''
 
   return (
     <>
@@ -736,7 +739,7 @@ export default function SeoGeo() {
         </div>
 
         {/* Not linked → admins link it; clients are told to ask an admin. */}
-        {!caClientId ? (
+        {!linkedCaId ? (
           isAdmin ? (
             <LinkPicker activeClient={activeClient} onLinked={reload} />
           ) : (
@@ -775,12 +778,12 @@ export default function SeoGeo() {
             </div>
 
             {/* Active tab — keyed by client so data reloads on client switch */}
-            <div key={caClientId}>
-              {tab === 'dashboard' && <DashboardTab caClientId={caClientId} />}
-              {tab === 'drafts' && <DraftsTab caClientId={caClientId} />}
-              {tab === 'keywords' && <KeywordsTab caClientId={caClientId} />}
-              {tab === 'reports' && <ReportsTab caClientId={caClientId} />}
-              {tab === 'analysis' && <AnalysisTab caClientId={caClientId} />}
+            <div key={slug}>
+              {tab === 'dashboard' && <DashboardTab clientId={slug} />}
+              {tab === 'drafts' && <DraftsTab clientId={slug} />}
+              {tab === 'keywords' && <KeywordsTab clientId={slug} />}
+              {tab === 'reports' && <ReportsTab clientId={slug} />}
+              {tab === 'analysis' && <AnalysisTab clientId={slug} />}
               {tab === 'watchlist' && (
                 <WatchlistTab clientId={activeClient.id} clientName={activeClient.name} />
               )}

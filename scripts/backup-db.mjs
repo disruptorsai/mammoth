@@ -30,6 +30,9 @@ if (!url || !anon || !email || !password) {
 const TABLES = [
   'profiles', 'clients', 'tasks', 'content_posts', 'leads', 'ad_campaigns',
   'seo_keywords', 'usage_events', 'client_secrets', 'activity', 'activities',
+  // SEO/GEO (Content Agent) tables added by migration 0015.
+  'content_drafts', 'keyword_research', 'seo_reports', 'site_analyses',
+  'content_usage_ledger', 'content_jobs', 'brand_voice_profiles', 'client_knowledge_base',
 ]
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-')

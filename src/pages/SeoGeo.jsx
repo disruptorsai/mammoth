@@ -13,6 +13,7 @@ import {
   fetchCaKeywords,
   fetchSeoReports,
   fetchSiteAnalysis,
+  requestDraftGeneration,
   isNotConfigured,
   draftStatusStyle,
   prettyStatus,
@@ -239,17 +240,93 @@ function DashboardTab({ clientId }) {
 // --- tab: Content Drafts ----------------------------------------------------
 
 const DRAFT_FILTERS = ['all', 'pending_approval', 'needs_revision', 'approved', 'published', 'failed']
+const DRAFT_TYPES = ['blog_post', 'service_page', 'faq', 'product_description', 'email']
 
 function DraftsTab({ clientId }) {
   const [filter, setFilter] = useState('all')
-  const { data, loading, error } = useResource(
+  const { data, loading, error, reload } = useResource(
     () => fetchDrafts(clientId, filter),
     [clientId, filter],
   )
   const counts = data?.counts ?? {}
 
+  const [topic, setTopic] = useState('')
+  const [contentType, setContentType] = useState('blog_post')
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState(null)
+
+  async function generate(e) {
+    e.preventDefault()
+    if (!topic.trim() || generating) return
+    setGenerating(true)
+    setGenError(null)
+    try {
+      const res = await requestDraftGeneration({ clientId, contentType, topic: topic.trim() })
+      setTopic('')
+      await reload()
+      // Inngest async path: poll until the new draft leaves 'generating'.
+      if (res?.async) {
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 3000))
+          const fresh = await fetchDrafts(clientId, filter)
+          if (!fresh.rows.some((d) => d.status === 'generating')) break
+        }
+        await reload()
+      }
+    } catch (e2) {
+      setGenError(e2.message ?? String(e2))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {/* Generate a draft natively (Claude → content_drafts) */}
+      <form onSubmit={generate} className="bento-card rounded-xl p-4 flex flex-col sm:flex-row gap-3 sm:items-end">
+        <label className="flex-1 block">
+          <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">
+            New draft topic
+          </span>
+          <input
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="e.g. Why local SEO matters for clinics"
+            className="mt-1 w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">Type</span>
+          <select
+            value={contentType}
+            onChange={(e) => setContentType(e.target.value)}
+            className="mt-1 w-full sm:w-44 bg-surface-container-low border border-outline rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+          >
+            {DRAFT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {prettyStatus(t)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          disabled={generating || !topic.trim()}
+          className="shrink-0 gold-gradient text-black font-bold px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {generating ? (
+            <>
+              <Icon name="progress_activity" className="animate-spin text-base" /> Generating…
+            </>
+          ) : (
+            <>
+              <Icon name="auto_awesome" className="text-base" /> Generate draft
+            </>
+          )}
+        </button>
+      </form>
+      {genError && <p className="text-sm text-error">{genError}</p>}
+
       <div className="flex flex-wrap gap-2">
         {DRAFT_FILTERS.map((f) => (
           <button

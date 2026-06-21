@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { handleContentAgent } from './api/_contentAgentCore.js'
+import { generateDraft } from './api/_seoGenerateCore.js'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -13,6 +14,12 @@ export default defineConfig(({ mode }) => {
   const CA_ENV = {
     CONTENT_AGENT_SUPABASE_URL: env.CONTENT_AGENT_SUPABASE_URL || '',
     CONTENT_AGENT_SERVICE_ROLE_KEY: env.CONTENT_AGENT_SERVICE_ROLE_KEY || '',
+  }
+  // Server-side env the SEO/GEO generation core needs (never reaches the browser).
+  const GEN_ENV = {
+    VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || '',
+    SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY || '',
+    ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY || '',
   }
 
   // Dev equivalent of api/content-agent.js — runs the SAME shared core so the
@@ -42,8 +49,42 @@ export default defineConfig(({ mode }) => {
     },
   }
 
+  // Dev equivalent of api/seo-generate.js — runs the generation core inline so
+  // "Generate draft" works under `npm run dev` without Inngest. Prod uses the
+  // serverless function (and optionally the Inngest async path).
+  const seoGenerateDevApi = {
+    name: 'seo-generate-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api/seo-generate', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'method_not_allowed' }))
+          return
+        }
+        try {
+          let raw = ''
+          for await (const chunk of req) raw += chunk
+          const body = raw ? JSON.parse(raw) : {}
+          const result = await generateDraft({
+            env: GEN_ENV,
+            clientId: body.clientId,
+            contentType: body.contentType,
+            topic: body.topic,
+          })
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ ...result, async: false }))
+        } catch (e) {
+          res.statusCode = 502
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'generation_failed', message: String(e?.message || e) }))
+        }
+      })
+    },
+  }
+
   return {
-    plugins: [react(), contentAgentDevApi],
+    plugins: [react(), contentAgentDevApi, seoGenerateDevApi],
     server: {
       port: 5173,
       open: true,

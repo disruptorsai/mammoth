@@ -115,6 +115,25 @@ export async function fetchSiteAnalysis(clientId) {
 
 export const isNotConfigured = (err) => err?.code === 'not_configured'
 
+// Trigger native draft generation (api/seo-generate.js, or the vite dev
+// middleware). Resolves when the draft is created — synchronously in the inline
+// path, or as a 'generating' row in the Inngest async path (poll for completion).
+export async function requestDraftGeneration({ clientId, contentType, topic }) {
+  const res = await fetch('/api/seo-generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId, contentType, topic }),
+  })
+  let body = null
+  try {
+    body = await res.json()
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok) throw new Error(body?.message || `Generation failed (${res.status}).`)
+  return body
+}
+
 export async function fetchCaClients() {
   let res
   try {

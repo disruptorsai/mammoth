@@ -2,12 +2,13 @@ node_modules
 dist
 dist-ssr
 *.local
-.env
-.env.*
-!.env.example
 .vite
-.vercel
 .playwright-mcp
 mc-*.png
 .DS_Store
 npm-debug.log*
+
+# Local env (Supabase + Vista Social creds) — keep .env.example committed, not .env
+.env
+.env.*
+!.env.example

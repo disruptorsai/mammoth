@@ -1,9 +1,12 @@
 import { NavLink } from 'react-router-dom'
 import Icon from './Icon'
+import ClientSwitcher from './ClientSwitcher'
 import { NAV_ITEMS } from '../data/nav'
+import { useAuth } from '../context/AuthContext'
 import logo from '../assets/mammoth-logo.png'
 
 export default function Sidebar({ open, onClose }) {
+  const { signOut } = useAuth()
   return (
     <>
       {/* Mobile backdrop */}
@@ -24,8 +27,13 @@ export default function Sidebar({ open, onClose }) {
           <img src={logo} alt="Mammoth" className="w-44 h-auto object-contain" />
         </div>
 
+        {/* Client switcher */}
+        <div className="px-4 pb-2">
+          <ClientSwitcher />
+        </div>
+
         {/* Nav */}
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto custom-scrollbar">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -64,13 +72,13 @@ export default function Sidebar({ open, onClose }) {
               <Icon name="help" className="text-lg" />
               <span>Help Center</span>
             </a>
-            <a
-              className="flex items-center gap-3 px-4 py-2 text-on-surface-variant text-sm hover:text-error transition-colors"
-              href="#"
+            <button
+              onClick={signOut}
+              className="flex items-center gap-3 px-4 py-2 text-on-surface-variant text-sm hover:text-error transition-colors text-left"
             >
               <Icon name="logout" className="text-lg" />
               <span>Log Out</span>
-            </a>
+            </button>
           </div>
         </div>
       </aside>

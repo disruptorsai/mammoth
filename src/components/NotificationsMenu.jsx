@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
 import { useClient } from '../context/ClientContext'
 import { fetchRecentActivity, relTime } from '../lib/activity'
+
+// Timestamp (ms) the user last opened the bell, per client — persisted so the
+// "unread" dot survives page navigation instead of reappearing every mount.
+const seenKey = (id) => `mc.notif.seen.${id}`
+const atMs = (v) => new Date(v).getTime() || 0
 
 // Bell menu: the active client's most recently updated tasks + content posts.
 export default function NotificationsMenu() {
@@ -9,7 +14,7 @@ export default function NotificationsMenu() {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState([])
   const [state, setState] = useState('idle')
-  const [read, setRead] = useState(false)
+  const [hasUnread, setHasUnread] = useState(false)
   const ref = useRef(null)
 
   useEffect(() => {
@@ -18,26 +23,38 @@ export default function NotificationsMenu() {
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!activeClient?.id) {
       setItems([])
       setState('ready')
+      setHasUnread(false)
       return
     }
     setState('loading')
     try {
-      setItems(await fetchRecentActivity(activeClient.id, 6))
+      const rows = await fetchRecentActivity(activeClient.id, 6)
+      setItems(rows)
       setState('ready')
+      const seen = Number(localStorage.getItem(seenKey(activeClient.id)) || 0)
+      const newest = rows.reduce((m, r) => Math.max(m, atMs(r.at)), 0)
+      setHasUnread(newest > seen)
     } catch {
       setState('error')
     }
-  }
+  }, [activeClient?.id])
+
+  // Compute the unread state up front (without opening) so the dot reflects
+  // real activity, and re-checks when the active client changes.
+  useEffect(() => {
+    load()
+  }, [load])
 
   function toggle() {
     const next = !open
     setOpen(next)
     if (next) {
-      setRead(true)
+      if (activeClient?.id) localStorage.setItem(seenKey(activeClient.id), String(Date.now()))
+      setHasUnread(false)
       load()
     }
   }
@@ -50,7 +67,7 @@ export default function NotificationsMenu() {
         aria-label="Notifications"
       >
         <Icon name="notifications" />
-        {!read && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary" />}
+        {hasUnread && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary" />}
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-72 bg-surface-container border border-outline rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in-up">

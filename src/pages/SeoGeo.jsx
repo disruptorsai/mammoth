@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import Icon from '../components/Icon'
+import { useToast } from '../components/Toast'
 import { useClient } from '../context/ClientContext'
 import { fetchKeywords, createKeyword, deleteKeyword } from '../lib/seoKeywords'
 import {
@@ -65,6 +66,21 @@ const SECTIONS = [
   { key: 'watchlist', label: 'Watchlist', icon: 'visibility' },
   { key: 'settings', label: 'Settings', icon: 'settings' },
 ]
+const SECTION_BY_KEY = Object.fromEntries(SECTIONS.map((s) => [s.key, s]))
+
+// Grouped navigation (Content Agent–style) so 12 sections stay scannable.
+const NAV_GROUPS = [
+  { label: 'Overview', items: ['dashboard'] },
+  { label: 'Create', items: ['agent', 'drafts', 'blog', 'images'] },
+  { label: 'Research', items: ['keywords', 'analysis', 'reports'] },
+  { label: 'Configure', items: ['knowledge', 'prompts', 'watchlist', 'settings'] },
+]
+
+// Cross-section navigation + toast, so any section can route the user or confirm.
+const NavCtx = createContext(() => {})
+const ToastCtx = createContext(() => {})
+const useGo = () => useContext(NavCtx)
+const useToastShow = () => useContext(ToastCtx)
 
 const DRAFT_FILTERS = ['all', 'pending_approval', 'needs_revision', 'approved', 'published', 'failed']
 const DRAFT_TYPES = ['blog_post', 'service_page', 'faq', 'product_description', 'email']
@@ -131,10 +147,11 @@ function PageHeader({ label, title, description, actions }) {
 }
 
 // Inline "run a job" control (Content Agent "Step 1: domain/keyword" pattern).
-function JobRunner({ step, label, placeholder, buttonText, icon, initialValue = '', hint, onRun }) {
+function JobRunner({ step, label, placeholder, buttonText, icon, initialValue = '', hint, successMsg, onRun }) {
   const [value, setValue] = useState(initialValue)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const toast = useToastShow()
   async function run(e) {
     e.preventDefault()
     if (!value.trim() || busy) return
@@ -142,6 +159,7 @@ function JobRunner({ step, label, placeholder, buttonText, icon, initialValue = 
     setError(null)
     try {
       await onRun(value.trim())
+      toast(successMsg || `${buttonText} complete`, 'check_circle')
     } catch (e2) {
       setError(e2.message ?? String(e2))
     } finally {
@@ -198,6 +216,60 @@ function Scorecard({ label, value, sub }) {
   )
 }
 
+// Getting-started checklist — guides a new client through first-run setup. Hides
+// itself once every step is done.
+function OnboardingCard({ data }) {
+  const go = useGo()
+  const kb = data.knowledgeBase || {}
+  const voice = data.brandVoice || {}
+  const steps = [
+    {
+      label: 'Set up the Knowledge Base',
+      hint: 'Brand voice + facts make every AI generation on-brand.',
+      done: Boolean(voice.voice_tone || kb.brand_guidelines || kb.case_studies || kb.unique_facts),
+      to: 'knowledge',
+      cta: 'Open Knowledge Base',
+    },
+    { label: 'Research keywords', hint: 'Find opportunities worth writing about.', done: data.keywords.length > 0, to: 'keywords', cta: 'Research keywords' },
+    { label: 'Generate your first draft', hint: 'Turn a topic into a ready-to-edit draft.', done: data.drafts.length > 0, to: 'drafts', cta: 'Create a draft' },
+    { label: 'Approve a draft', hint: 'Review, edit and approve content.', done: data.drafts.some((d) => d.status === 'approved' || d.status === 'published'), to: 'drafts', cta: 'Review drafts' },
+  ]
+  const doneCount = steps.filter((s) => s.done).length
+  if (doneCount === steps.length) return null
+
+  return (
+    <section className="rounded-xl border border-primary/30 bg-primary/5 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="section-label">Get started</p>
+          <p className="mt-1 text-sm text-on-surface-variant">{doneCount} of {steps.length} done — finish setup to get the most out of your SEO/GEO workspace.</p>
+        </div>
+        <div className="h-1.5 w-40 overflow-hidden rounded-full bg-surface-container-low">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {steps.map((s) => (
+          <div key={s.label} className={`flex items-start gap-3 rounded-lg border p-4 ${s.done ? 'border-primary/30 bg-surface-container-low' : 'border-outline bg-surface-container'}`}>
+            <Icon name={s.done ? 'check_circle' : 'radio_button_unchecked'} filled={s.done} className={`text-lg shrink-0 ${s.done ? 'text-primary' : 'text-on-surface-variant'}`} />
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm font-medium ${s.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{s.label}</p>
+              {!s.done && (
+                <>
+                  <p className="mt-0.5 text-xs text-on-surface-variant">{s.hint}</p>
+                  <button onClick={() => go(s.to)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:gap-2 transition-all">
+                    {s.cta} <Icon name="arrow_forward" className="text-sm" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function DashboardSection({ clientId }) {
   const { data, loading, error } = useResource(() => fetchDashboard(clientId), [clientId])
   const spend = useMemo(() => (data?.usage ?? []).reduce((s, u) => s + (u.cost_cents || 0), 0), [data])
@@ -212,6 +284,8 @@ function DashboardSection({ clientId }) {
     <Boundary loading={loading} error={error}>
       {data && (
         <div className="space-y-4">
+          <OnboardingCard data={data} />
+
           {/* Scorecards */}
           <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Scorecard label="Drafts · 30d" value={data.drafts.length} />
@@ -340,6 +414,7 @@ function DraftsSection({ clientId }) {
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState(null)
   const [selected, setSelected] = useState(null)
+  const toast = useToastShow()
 
   async function generate(e) {
     e.preventDefault()
@@ -358,6 +433,7 @@ function DraftsSection({ clientId }) {
         }
         await reload()
       }
+      toast('Draft generated', 'check_circle')
     } catch (e2) {
       setGenError(e2.message ?? String(e2))
     } finally {
@@ -828,6 +904,7 @@ function DraftEditor({ draftId, onBack }) {
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
+  const toast = useToastShow()
 
   useEffect(() => {
     if (draft) setText(draft.humanized ?? draft.original ?? '')
@@ -839,6 +916,7 @@ function DraftEditor({ draftId, onBack }) {
       await saveDraftHumanized(draftId, text)
       setDirty(false)
       await reload()
+      toast('Draft saved', 'check_circle')
     } finally {
       setBusy(false)
     }
@@ -847,12 +925,12 @@ function DraftEditor({ draftId, onBack }) {
   async function act(a) {
     setBusy(true)
     try {
-      const extra = a.key === 'approve' ? {} : {}
-      await setDraftStatus(draftId, a.status, extra)
+      await setDraftStatus(draftId, a.status)
       await addApproval(draft.client_id, draftId, a.key, note)
       setNote('')
       await reload()
       await reloadTrail()
+      toast(`Draft marked ${prettyStatus(a.status)}`, 'check_circle')
     } finally {
       setBusy(false)
     }
@@ -957,6 +1035,7 @@ function KnowledgeBaseSection({ clientId }) {
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveErr, setSaveErr] = useState(null)
+  const toast = useToastShow()
 
   useEffect(() => {
     if (data) {
@@ -985,6 +1064,7 @@ function KnowledgeBaseSection({ clientId }) {
         sample_copy: voice.sample_copy || '',
       })
       setSaved(true)
+      toast('Knowledge base saved', 'check_circle')
       await reload()
     } catch (e2) {
       setSaveErr(e2.message ?? String(e2))
@@ -1347,6 +1427,7 @@ function ImagesSection({ clientId }) {
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
+  const toast = useToastShow()
 
   async function generate(e) {
     e.preventDefault()
@@ -1358,6 +1439,7 @@ function ImagesSection({ clientId }) {
       await saveImage(clientId, prompt.trim(), dataUrl)
       setPrompt('')
       await reload()
+      toast('Image generated', 'check_circle')
     } catch (e2) {
       setErr(e2.message ?? String(e2))
     } finally {
@@ -1420,6 +1502,7 @@ function SettingsSection({ clientId }) {
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState(null)
+  const toast = useToastShow()
 
   useEffect(() => {
     if (data) {
@@ -1451,6 +1534,7 @@ function SettingsSection({ clientId }) {
         sample_copy: voice.sample_copy || '',
       })
       setSaved(true)
+      toast('Settings saved', 'check_circle')
       await reload()
     } catch (e2) {
       setErr(e2.message ?? String(e2))
@@ -1464,6 +1548,7 @@ function SettingsSection({ clientId }) {
     if (!secret) return
     await saveApiKey(clientId, provider, secret)
     setKeys({ ...keys, [provider]: '' })
+    toast(`${provider} key saved`, 'check_circle')
     reload()
   }
 
@@ -1555,55 +1640,109 @@ const SECTION_META = {
   watchlist: { label: 'Tracking', title: 'Keyword Watchlist', desc: 'Manually tracked target keywords.' },
 }
 
+// Grouped workspace nav: a vertical rail on desktop, a grouped dropdown on mobile.
+function WorkspaceNav({ section, onSelect }) {
+  return (
+    <>
+      <aside className="hidden lg:block w-56 shrink-0">
+        <nav className="sticky top-4 space-y-5">
+          {NAV_GROUPS.map((g) => (
+            <div key={g.label}>
+              <p className="section-label px-3 mb-1.5">{g.label}</p>
+              <ul className="space-y-0.5">
+                {g.items.map((key) => {
+                  const s = SECTION_BY_KEY[key]
+                  const active = section === key
+                  return (
+                    <li key={key}>
+                      <button
+                        onClick={() => onSelect(key)}
+                        className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                          active ? 'bg-primary/10 text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                        }`}
+                      >
+                        {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" />}
+                        <Icon name={s.icon} filled={active} className="text-base shrink-0" />
+                        {s.label}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      <div className="lg:hidden">
+        <select value={section} onChange={(e) => onSelect(e.target.value)} className="input-field" aria-label="SEO/GEO section">
+          {NAV_GROUPS.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.items.map((key) => (
+                <option key={key} value={key}>
+                  {SECTION_BY_KEY[key].label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+    </>
+  )
+}
+
 export default function SeoGeo() {
   const { openNav } = useOutletContext()
   const { activeClient } = useClient()
   const [section, setSection] = useState('dashboard')
   const slug = activeClient?.id || ''
   const meta = SECTION_META[section]
+  const { show, node } = useToast()
+  const go = useCallback((key) => setSection(key), [])
 
   return (
     <>
       <TopBar title="SEO / GEO Strategy" searchPlaceholder="Search SEO/GEO…" onMenu={openNav} />
 
-      <div className="p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full space-y-6">
-        <PageHeader label={meta.label} title={meta.title} description={meta.desc} />
+      <ToastCtx.Provider value={show}>
+        <NavCtx.Provider value={go}>
+          <div className="p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full">
+            <div className="flex flex-col gap-6 lg:flex-row">
+              <WorkspaceNav section={section} onSelect={go} />
 
-        {/* Section nav (Content Agent style pills) */}
-        <nav className="flex flex-wrap gap-2">
-          {SECTIONS.map((s) => (
-            <button key={s.key} onClick={() => setSection(s.key)} className={`nav-pill ${section === s.key ? 'active' : ''}`}>
-              <Icon name={s.icon} filled={section === s.key} className="text-base" />
-              {s.label}
-            </button>
-          ))}
-        </nav>
+              <div className="min-w-0 flex-1 space-y-6">
+                <PageHeader label={meta.label} title={meta.title} description={meta.desc} />
 
-        {/* Active section — keyed by client so data reloads on client switch */}
-        <div key={slug}>
-          {!slug ? (
-            <div className="glass-card p-10 text-center">
-              <p className="font-display text-lg">No client selected</p>
-              <p className="mt-2 text-sm text-on-surface-variant">Pick a client in the sidebar to see its SEO/GEO workspace.</p>
+                {/* Active section — keyed by client+section so data reloads on switch */}
+                <div key={`${slug}:${section}`}>
+                  {!slug ? (
+                    <div className="glass-card p-10 text-center">
+                      <p className="font-display text-lg">No client selected</p>
+                      <p className="mt-2 text-sm text-on-surface-variant">Pick a client in the sidebar to see its SEO/GEO workspace.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {section === 'dashboard' && <DashboardSection clientId={slug} />}
+                      {section === 'agent' && <AiAgentSection clientId={slug} />}
+                      {section === 'drafts' && <DraftsSection clientId={slug} />}
+                      {section === 'keywords' && <KeywordsSection clientId={slug} />}
+                      {section === 'prompts' && <PromptStudioSection clientId={slug} />}
+                      {section === 'images' && <ImagesSection clientId={slug} />}
+                      {section === 'settings' && <SettingsSection clientId={slug} />}
+                      {section === 'reports' && <ReportsSection clientId={slug} />}
+                      {section === 'analysis' && <AnalysisSection clientId={slug} />}
+                      {section === 'knowledge' && <KnowledgeBaseSection clientId={slug} />}
+                      {section === 'blog' && <BlogStudioSection clientId={slug} />}
+                      {section === 'watchlist' && <WatchlistSection clientId={slug} clientName={activeClient.name} />}
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-          ) : (
-            <>
-              {section === 'dashboard' && <DashboardSection clientId={slug} />}
-              {section === 'agent' && <AiAgentSection clientId={slug} />}
-              {section === 'drafts' && <DraftsSection clientId={slug} />}
-              {section === 'keywords' && <KeywordsSection clientId={slug} />}
-              {section === 'prompts' && <PromptStudioSection clientId={slug} />}
-              {section === 'images' && <ImagesSection clientId={slug} />}
-              {section === 'settings' && <SettingsSection clientId={slug} />}
-              {section === 'reports' && <ReportsSection clientId={slug} />}
-              {section === 'analysis' && <AnalysisSection clientId={slug} />}
-              {section === 'knowledge' && <KnowledgeBaseSection clientId={slug} />}
-              {section === 'blog' && <BlogStudioSection clientId={slug} />}
-              {section === 'watchlist' && <WatchlistSection clientId={slug} clientName={activeClient.name} />}
-            </>
-          )}
-        </div>
-      </div>
+          </div>
+          {node}
+        </NavCtx.Provider>
+      </ToastCtx.Provider>
     </>
   )
 }

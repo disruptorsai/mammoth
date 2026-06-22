@@ -216,6 +216,99 @@ export async function importDraft(clientId, { topic, contentType = 'blog_post', 
   return data
 }
 
+// --- Prompt Studio (prompt_templates CRUD, client-side via RLS) -------------
+
+export async function fetchPromptTemplates(clientId) {
+  if (!isSupabaseConfigured) return []
+  const { data, error } = await supabase
+    .from('prompt_templates')
+    .select('id,client_id,content_type,template,version,is_active,is_active_ab,notes,created_at')
+    .or(`client_id.is.null,client_id.eq.${clientId}`)
+    .order('content_type', { ascending: true })
+    .order('version', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function createPromptTemplate(clientId, { content_type, template, notes = '', activate = false }) {
+  // Next version for this client's content type.
+  const { data: existing } = await supabase
+    .from('prompt_templates')
+    .select('version')
+    .eq('client_id', clientId)
+    .eq('content_type', content_type)
+    .order('version', { ascending: false })
+    .limit(1)
+  const version = (existing?.[0]?.version ?? 0) + 1
+  if (activate) {
+    await supabase.from('prompt_templates').update({ is_active: false }).eq('client_id', clientId).eq('content_type', content_type)
+  }
+  const { data, error } = await supabase
+    .from('prompt_templates')
+    .insert({ client_id: clientId, content_type, template, notes, version, is_active: activate })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function activatePromptTemplate(clientId, id, content_type) {
+  await supabase.from('prompt_templates').update({ is_active: false }).eq('client_id', clientId).eq('content_type', content_type)
+  const { error } = await supabase.from('prompt_templates').update({ is_active: true }).eq('id', id)
+  if (error) throw error
+}
+
+export async function deletePromptTemplate(id) {
+  const { error } = await supabase.from('prompt_templates').delete().eq('id', id)
+  if (error) throw error
+}
+
+// --- AI Content Agent (chat) -------------------------------------------------
+
+export async function listConversations(clientId, agentName) {
+  if (!isSupabaseConfigured) return []
+  const { data, error } = await supabase
+    .from('agent_conversations')
+    .select('id,agent_name,title,messages,updated_at')
+    .eq('client_id', clientId)
+    .eq('agent_name', agentName)
+    .order('updated_at', { ascending: false })
+    .limit(50)
+  if (error) throw error
+  return data ?? []
+}
+
+export async function saveConversation(clientId, { id, agent_name, title, messages }) {
+  const row = { client_id: clientId, agent_name, title, messages, updated_at: new Date().toISOString() }
+  if (id) row.id = id
+  const { data, error } = await supabase
+    .from('agent_conversations')
+    .upsert(row)
+    .select('id')
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteConversation(id) {
+  const { error } = await supabase.from('agent_conversations').delete().eq('id', id)
+  if (error) throw error
+}
+
+// One Claude completion through the same-origin /claude-api proxy (key injected
+// server-side). Used by the chat personas.
+export async function chatComplete({ system, messages, model = 'claude-sonnet-4-6' }) {
+  const res = await fetch('/claude-api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, max_tokens: 2048, system, messages }),
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(`Claude ${res.status}: ${text.slice(0, 200)}`)
+  const json = JSON.parse(text)
+  return (json.content || []).map((b) => b.text || '').join('').trim()
+}
+
 // Trigger native draft generation (api/seo-generate.js, or the vite dev
 // middleware). Resolves when the draft is created — synchronously in the inline
 // path, or as a 'generating' row in the Inngest async path (poll for completion).

@@ -24,6 +24,14 @@ import {
   addApproval,
   fetchApprovals,
   importDraft,
+  fetchPromptTemplates,
+  createPromptTemplate,
+  activatePromptTemplate,
+  deletePromptTemplate,
+  listConversations,
+  saveConversation,
+  deleteConversation,
+  chatComplete,
   draftStatusStyle,
   prettyStatus,
   dollars,
@@ -37,8 +45,10 @@ import {
 
 const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { key: 'agent', label: 'AI Agent', icon: 'forum' },
   { key: 'drafts', label: 'Drafts', icon: 'description' },
   { key: 'keywords', label: 'Keywords', icon: 'travel_explore' },
+  { key: 'prompts', label: 'Prompt Studio', icon: 'tune' },
   { key: 'reports', label: 'SEO / GEO', icon: 'assessment' },
   { key: 'analysis', label: 'Site Analysis', icon: 'query_stats' },
   { key: 'knowledge', label: 'Knowledge Base', icon: 'menu_book' },
@@ -1068,12 +1078,266 @@ function BlogStudioSection({ clientId }) {
   )
 }
 
+// --- Prompt Studio ----------------------------------------------------------
+
+function PromptStudioSection({ clientId }) {
+  const { data, loading, error, reload } = useResource(() => fetchPromptTemplates(clientId), [clientId])
+  const [type, setType] = useState('blog_post')
+  const [template, setTemplate] = useState('')
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const forType = (data ?? []).filter((t) => t.content_type === type)
+  const active = forType.find((t) => t.is_active)
+
+  async function create(activate) {
+    if (!template.trim() || busy) return
+    setBusy(true)
+    setErr(null)
+    try {
+      await createPromptTemplate(clientId, { content_type: type, template: template.trim(), notes: notes.trim(), activate })
+      setTemplate('')
+      setNotes('')
+      await reload()
+    } catch (e) {
+      setErr(e.message ?? String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <nav className="flex flex-wrap gap-2">
+        {DRAFT_TYPES.map((t) => (
+          <button key={t} onClick={() => setType(t)} className={`nav-pill ${type === t ? 'active' : ''}`}>
+            {prettyStatus(t)}
+          </button>
+        ))}
+      </nav>
+
+      <Boundary loading={loading} error={error}>
+        <div className="space-y-4">
+          <div className="glass-card p-6">
+            <p className="section-label mb-2">Active prompt · {prettyStatus(type)}</p>
+            {active ? (
+              <>
+                <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">v{active.version}</p>
+                <pre className="whitespace-pre-wrap text-sm text-on-surface-variant">{active.template}</pre>
+              </>
+            ) : (
+              <p className="text-sm text-on-surface-variant">No active template — the built-in default is used for generation. Create one below to override it.</p>
+            )}
+          </div>
+
+          <div className="glass-card p-6 space-y-3">
+            <p className="section-label">New version</p>
+            <p className="text-xs text-on-surface-variant">Use <code className="text-primary">{'{topic}'}</code> and <code className="text-primary">{'{brand_name}'}</code> as placeholders.</p>
+            <textarea value={template} onChange={(e) => setTemplate(e.target.value)} rows={8} placeholder="Write the generation instruction for this content type…" className="input-field font-mono text-sm" />
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" className="input-field" />
+            {err && <p className="text-sm text-error">{err}</p>}
+            <div className="flex gap-2">
+              <button onClick={() => create(true)} disabled={busy || !template.trim()} className="btn-primary">Save &amp; activate</button>
+              <button onClick={() => create(false)} disabled={busy || !template.trim()} className="btn-secondary">Save as draft</button>
+            </div>
+          </div>
+
+          {forType.length > 0 && (
+            <div className="glass-card overflow-hidden p-0">
+              <p className="section-label p-5 pb-0">Version history</p>
+              <ul className="divide-y divide-outline/50 mt-2">
+                {forType.map((t) => (
+                  <li key={t.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm">
+                        v{t.version} {t.is_active && <span className="ml-2 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-mono uppercase text-primary">active</span>}
+                        {t.client_id === null && <span className="ml-2 text-[10px] font-mono uppercase text-on-surface-variant">global</span>}
+                      </p>
+                      {t.notes && <p className="truncate text-xs text-on-surface-variant">{t.notes}</p>}
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      {!t.is_active && t.client_id !== null && (
+                        <button onClick={() => activatePromptTemplate(clientId, t.id, type).then(reload)} className="btn-secondary px-3 py-1.5 text-xs">Activate</button>
+                      )}
+                      {!t.is_active && t.client_id !== null && (
+                        <button onClick={() => deletePromptTemplate(t.id).then(reload)} className="text-on-surface-variant hover:text-error" aria-label="Delete">
+                          <Icon name="delete" className="text-base" />
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </Boundary>
+    </div>
+  )
+}
+
+// --- AI Content Agent (chat personas) ---------------------------------------
+
+const AGENTS = [
+  { id: 'assistant', name: 'Content Assistant', system: 'You are a versatile content assistant. Help with any content task clearly and concisely.' },
+  { id: 'ideas', name: 'Idea Generator', system: 'You are a content idea generator. Produce specific, original, on-brand content ideas with angles and hooks.' },
+  { id: 'seo', name: 'SEO Optimizer', system: 'You are an SEO optimizer. Improve content for search intent, keywords, structure, and readability without keyword stuffing.' },
+  { id: 'blog', name: 'Blog Writer', system: 'You are a blog writer. Produce well-structured, engaging long-form posts with clear sections.' },
+  { id: 'social', name: 'Social Media Writer', system: 'You are a social media writer. Produce punchy, platform-appropriate posts with strong hooks.' },
+  { id: 'email', name: 'Email Specialist', system: 'You are an email marketing specialist. Write concise emails with a strong subject line and one clear call to action.' },
+  { id: 'linkedin', name: 'LinkedIn Creator', system: 'You are a LinkedIn content creator. Write professional, insight-led posts that drive engagement.' },
+]
+
+function AiAgentSection({ clientId }) {
+  const [agentId, setAgentId] = useState('assistant')
+  const agent = AGENTS.find((a) => a.id === agentId) || AGENTS[0]
+  const [convos, setConvos] = useState([])
+  const [convId, setConvId] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const [context, setContext] = useState('')
+
+  // Load brand voice + KB once to ground the persona.
+  useEffect(() => {
+    Promise.all([fetchBrandVoice(clientId), fetchKnowledgeBase(clientId)])
+      .then(([v, k]) => {
+        const bits = []
+        if (v?.voice_tone) bits.push(`Brand voice/tone: ${v.voice_tone}`)
+        if (v?.target_audience) bits.push(`Audience: ${v.target_audience}`)
+        if (k?.brand_guidelines) bits.push(`Brand guidelines:\n${k.brand_guidelines}`)
+        if (k?.unique_facts) bits.push(`Unique facts:\n${k.unique_facts}`)
+        setContext(bits.join('\n\n'))
+      })
+      .catch(() => setContext(''))
+  }, [clientId])
+
+  const loadConvos = useCallback(() => {
+    listConversations(clientId, agent.name).then(setConvos).catch(() => setConvos([]))
+  }, [clientId, agent.name])
+  useEffect(() => {
+    loadConvos()
+    setConvId(null)
+    setMessages([])
+  }, [loadConvos])
+
+  function openConvo(c) {
+    setConvId(c.id)
+    setMessages(Array.isArray(c.messages) ? c.messages : [])
+  }
+  function newChat() {
+    setConvId(null)
+    setMessages([])
+  }
+
+  async function send(e) {
+    e.preventDefault()
+    if (!input.trim() || busy) return
+    const next = [...messages, { role: 'user', content: input.trim() }]
+    setMessages(next)
+    setInput('')
+    setBusy(true)
+    setErr(null)
+    try {
+      const system = [agent.system, context && `Use this brand context where relevant:\n${context}`].filter(Boolean).join('\n\n')
+      const reply = await chatComplete({ system, messages: next })
+      const withReply = [...next, { role: 'assistant', content: reply }]
+      setMessages(withReply)
+      const title = next[0]?.content?.slice(0, 60) || 'New chat'
+      const saved = await saveConversation(clientId, { id: convId, agent_name: agent.name, title, messages: withReply })
+      if (!convId) setConvId(saved.id)
+      loadConvos()
+    } catch (e2) {
+      setErr(e2.message ?? String(e2))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* Left rail: agent + history */}
+      <div className="lg:col-span-4 space-y-4">
+        <div className="glass-card p-5 space-y-3">
+          <p className="section-label">Agent</p>
+          <select value={agentId} onChange={(e) => setAgentId(e.target.value)} className="input-field">
+            {AGENTS.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <button onClick={newChat} className="btn-secondary w-full"><Icon name="add" className="text-base" /> New chat</button>
+        </div>
+        <div className="glass-card p-5">
+          <p className="section-label mb-3">History</p>
+          {convos.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">No conversations yet.</p>
+          ) : (
+            <ul className="space-y-1">
+              {convos.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-2">
+                  <button onClick={() => openConvo(c)} className={`flex-1 truncate text-left text-sm py-1.5 ${convId === c.id ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
+                    {c.title}
+                  </button>
+                  <button onClick={() => deleteConversation(c.id).then(loadConvos)} className="text-on-surface-variant hover:text-error" aria-label="Delete chat">
+                    <Icon name="delete" className="text-sm" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* Chat thread */}
+      <div className="lg:col-span-8">
+        <div className="glass-card flex flex-col" style={{ minHeight: '60vh' }}>
+          <div className="flex-1 space-y-3 overflow-y-auto p-5">
+            {messages.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">Chat with the {agent.name}. Your brand voice &amp; knowledge base are included automatically.</p>
+            ) : (
+              messages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-4 py-2.5 text-sm ${m.role === 'user' ? 'bg-primary/15 text-on-surface' : 'bg-surface-container-low text-on-surface-variant'}`}>
+                    {m.content}
+                  </div>
+                </div>
+              ))
+            )}
+            {busy && <p className="text-sm text-on-surface-variant"><Icon name="progress_activity" className="animate-spin text-base align-middle" /> Thinking…</p>}
+            {err && <p className="text-sm text-error">{err}</p>}
+          </div>
+          <form onSubmit={send} className="flex items-end gap-2 border-t border-outline p-4">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  send(e)
+                }
+              }}
+              rows={2}
+              placeholder="Message the agent…  (Enter to send, Shift+Enter for newline)"
+              className="input-field flex-1 resize-none"
+            />
+            <button type="submit" disabled={busy || !input.trim()} className="btn-primary"><Icon name="send" className="text-base" /></button>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // --- page -------------------------------------------------------------------
 
 const SECTION_META = {
   dashboard: { label: 'Overview', title: 'SEO / GEO Dashboard', desc: 'Content, keywords, audits and strategy for this client.' },
+  agent: { label: 'Assistant', title: 'AI Content Agent', desc: 'Chat with content personas, grounded in this client’s brand voice.' },
   drafts: { label: 'Content', title: 'Drafts', desc: 'AI-generated content, from queued to published.' },
   keywords: { label: 'Research', title: 'Keywords', desc: 'Opportunities scored by search volume and difficulty.' },
+  prompts: { label: 'Config', title: 'Prompt Studio', desc: 'The instructions that drive AI generation, per content type.' },
   reports: { label: 'Audits', title: 'SEO / GEO Reports', desc: 'PageSpeed + AI-summarised site audits.' },
   analysis: { label: 'Strategy', title: 'Site Analysis', desc: 'What you rank for, and what to target next.' },
   knowledge: { label: 'Brand', title: 'Knowledge Base', desc: 'Brand voice + facts that feed every AI generation.' },
@@ -1115,8 +1379,10 @@ export default function SeoGeo() {
           ) : (
             <>
               {section === 'dashboard' && <DashboardSection clientId={slug} />}
+              {section === 'agent' && <AiAgentSection clientId={slug} />}
               {section === 'drafts' && <DraftsSection clientId={slug} />}
               {section === 'keywords' && <KeywordsSection clientId={slug} />}
+              {section === 'prompts' && <PromptStudioSection clientId={slug} />}
               {section === 'reports' && <ReportsSection clientId={slug} />}
               {section === 'analysis' && <AnalysisSection clientId={slug} />}
               {section === 'knowledge' && <KnowledgeBaseSection clientId={slug} />}

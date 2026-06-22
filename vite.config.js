@@ -115,6 +115,9 @@ export default defineConfig(({ mode }) => {
           headers: {
             'x-api-key': ANTHROPIC_KEY,
             'anthropic-version': '2023-06-01',
+            // Anthropic flags browser-origin requests; the key is injected here
+            // server-side (never in the bundle), so direct browser access is safe.
+            'anthropic-dangerous-direct-browser-access': 'true',
           },
         },
         // GoHighLevel: /ghl-api/<path> forwards with the key injected (prod

@@ -104,6 +104,118 @@ export async function fetchSiteAnalysis(clientId) {
   return { website: analysis?.domain ?? '', analysis }
 }
 
+// --- Knowledge Base + Brand Voice (user-edited; client-side writes via RLS) ---
+
+export async function fetchKnowledgeBase(clientId) {
+  if (!isSupabaseConfigured) return null
+  const { data, error } = await supabase
+    .from('client_knowledge_base')
+    .select('case_studies,brand_voice_samples,brand_guidelines,unique_facts,faq,notes,updated_at')
+    .eq('client_id', clientId)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function saveKnowledgeBase(clientId, fields) {
+  const { error } = await supabase
+    .from('client_knowledge_base')
+    .upsert({ client_id: clientId, ...fields, updated_at: new Date().toISOString() }, { onConflict: 'client_id' })
+  if (error) throw error
+}
+
+export async function fetchBrandVoice(clientId) {
+  if (!isSupabaseConfigured) return null
+  const { data, error } = await supabase
+    .from('brand_voice_profiles')
+    .select('voice_tone,target_audience,banned_words,sample_copy')
+    .eq('client_id', clientId)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function saveBrandVoice(clientId, fields) {
+  const { error } = await supabase
+    .from('brand_voice_profiles')
+    .upsert({ client_id: clientId, ...fields }, { onConflict: 'client_id' })
+  if (error) throw error
+}
+
+// --- Draft editor (single draft: read content, edit, change status, schedule) -
+
+export async function fetchDraft(id) {
+  if (!isSupabaseConfigured) return null
+  const { data, error } = await supabase
+    .from('content_drafts')
+    .select('id,client_id,content_type,topic,original,humanized,status,model,cost_cents,scheduled_at,wp_post_url,created_at,updated_at')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function saveDraftHumanized(id, humanized) {
+  const { error } = await supabase
+    .from('content_drafts')
+    .update({ humanized, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function setDraftStatus(id, status, extra = {}) {
+  const { error } = await supabase
+    .from('content_drafts')
+    .update({ status, updated_at: new Date().toISOString(), ...extra })
+    .eq('id', id)
+  if (error) throw error
+}
+
+// Approval trail — best-effort (table arrives with migration 0016; degrade
+// gracefully until then so the editor still works).
+export async function addApproval(clientId, draftId, action, note = '') {
+  try {
+    const { data: auth } = await supabase.auth.getUser()
+    await supabase.from('approvals').insert({ client_id: clientId, draft_id: draftId, action, note, user_id: auth?.user?.id ?? null })
+  } catch {
+    /* approvals table not present yet — ignore */
+  }
+}
+
+export async function fetchApprovals(draftId) {
+  try {
+    const { data } = await supabase
+      .from('approvals')
+      .select('id,action,note,created_at')
+      .eq('draft_id', draftId)
+      .order('created_at', { ascending: false })
+    return data ?? []
+  } catch {
+    return []
+  }
+}
+
+// --- Blog Studio: import a file's text as a draft -----------------------------
+
+export async function importDraft(clientId, { topic, contentType = 'blog_post', body }) {
+  const { data, error } = await supabase
+    .from('content_drafts')
+    .insert({
+      client_id: clientId,
+      content_type: contentType,
+      topic,
+      original: body,
+      humanized: body,
+      status: 'pending_approval',
+      model: 'imported',
+      cost_cents: 0,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data
+}
+
 // Trigger native draft generation (api/seo-generate.js, or the vite dev
 // middleware). Resolves when the draft is created — synchronously in the inline
 // path, or as a 'generating' row in the Inngest async path (poll for completion).

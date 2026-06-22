@@ -14,6 +14,16 @@ import {
   requestKeywordResearch,
   requestSiteAnalysis,
   requestSeoReport,
+  fetchKnowledgeBase,
+  saveKnowledgeBase,
+  fetchBrandVoice,
+  saveBrandVoice,
+  fetchDraft,
+  saveDraftHumanized,
+  setDraftStatus,
+  addApproval,
+  fetchApprovals,
+  importDraft,
   draftStatusStyle,
   prettyStatus,
   dollars,
@@ -31,6 +41,8 @@ const SECTIONS = [
   { key: 'keywords', label: 'Keywords', icon: 'travel_explore' },
   { key: 'reports', label: 'SEO / GEO', icon: 'assessment' },
   { key: 'analysis', label: 'Site Analysis', icon: 'query_stats' },
+  { key: 'knowledge', label: 'Knowledge Base', icon: 'menu_book' },
+  { key: 'blog', label: 'Blog Studio', icon: 'upload_file' },
   { key: 'watchlist', label: 'Watchlist', icon: 'visibility' },
 ]
 
@@ -307,6 +319,7 @@ function DraftsSection({ clientId }) {
   const [contentType, setContentType] = useState('blog_post')
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState(null)
+  const [selected, setSelected] = useState(null)
 
   async function generate(e) {
     e.preventDefault()
@@ -330,6 +343,18 @@ function DraftsSection({ clientId }) {
     } finally {
       setGenerating(false)
     }
+  }
+
+  if (selected) {
+    return (
+      <DraftEditor
+        draftId={selected}
+        onBack={() => {
+          setSelected(null)
+          reload()
+        }}
+      />
+    )
   }
 
   return (
@@ -386,7 +411,8 @@ function DraftsSection({ clientId }) {
             {data.rows.map((d) => (
               <li
                 key={d.id}
-                className="group relative flex items-center justify-between gap-4 rounded-xl border border-outline bg-surface-container px-5 py-4 transition-all hover:border-outline-variant hover:bg-surface-container-high"
+                onClick={() => setSelected(d.id)}
+                className="group relative flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-outline bg-surface-container px-5 py-4 transition-all hover:border-outline-variant hover:bg-surface-container-high"
               >
                 <span className="absolute left-0 top-4 bottom-4 w-1 rounded-r-full bg-primary opacity-0 transition-opacity group-hover:opacity-100" />
                 <div className="min-w-0 flex-1">
@@ -766,6 +792,282 @@ function WatchlistSection({ clientId, clientName }) {
   )
 }
 
+// --- Draft Editor (open a draft: read/edit content, approve/schedule) --------
+
+const DRAFT_ACTIONS = [
+  { key: 'approve', label: 'Approve', icon: 'check_circle', status: 'approved', cls: 'btn-primary' },
+  { key: 'request_revision', label: 'Request revision', icon: 'rate_review', status: 'needs_revision', cls: 'btn-secondary' },
+  { key: 'reject', label: 'Reject', icon: 'cancel', status: 'failed', cls: 'btn-secondary' },
+  { key: 'resubmit', label: 'Resubmit', icon: 'replay', status: 'pending_approval', cls: 'btn-secondary' },
+]
+
+function DraftEditor({ draftId, onBack }) {
+  const { data: draft, loading, error, reload } = useResource(() => fetchDraft(draftId), [draftId])
+  const { data: trail, reload: reloadTrail } = useResource(() => fetchApprovals(draftId), [draftId])
+  const [text, setText] = useState('')
+  const [dirty, setDirty] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+
+  useEffect(() => {
+    if (draft) setText(draft.humanized ?? draft.original ?? '')
+  }, [draft])
+
+  async function save() {
+    setBusy(true)
+    try {
+      await saveDraftHumanized(draftId, text)
+      setDirty(false)
+      await reload()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function act(a) {
+    setBusy(true)
+    try {
+      const extra = a.key === 'approve' ? {} : {}
+      await setDraftStatus(draftId, a.status, extra)
+      await addApproval(draft.client_id, draftId, a.key, note)
+      setNote('')
+      await reload()
+      await reloadTrail()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-primary">
+        <Icon name="arrow_back" className="text-base" /> Back to drafts
+      </button>
+
+      <Boundary loading={loading} error={error}>
+        {draft && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Editor */}
+            <div className="lg:col-span-8 space-y-4">
+              <div className="glass-card p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="section-label mb-1">{prettyStatus(draft.content_type)}</p>
+                    <h2 className="font-display text-2xl gold-shine truncate">{draft.topic || 'Untitled draft'}</h2>
+                  </div>
+                  <span className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-mono uppercase ${draftStatusStyle(draft.status)}`}>
+                    {prettyStatus(draft.status)}
+                  </span>
+                </div>
+                <textarea
+                  value={text}
+                  onChange={(e) => {
+                    setText(e.target.value)
+                    setDirty(true)
+                  }}
+                  rows={22}
+                  className="input-field mt-4 font-mono text-sm leading-relaxed"
+                />
+                <div className="mt-3 flex items-center gap-3">
+                  <button onClick={save} disabled={!dirty || busy} className="btn-primary">
+                    <Icon name="save" className="text-base" /> {busy ? 'Saving…' : 'Save changes'}
+                  </button>
+                  {dirty && <span className="text-xs text-on-surface-variant">Unsaved edits</span>}
+                  <span className="ml-auto text-xs tabular-nums text-on-surface-variant">{dollars(draft.cost_cents)} · {draft.model}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Workflow */}
+            <div className="lg:col-span-4 space-y-4">
+              <div className="glass-card p-6 space-y-3">
+                <p className="section-label">Workflow</p>
+                <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className="input-field" />
+                <div className="grid grid-cols-1 gap-2">
+                  {DRAFT_ACTIONS.map((a) => (
+                    <button key={a.key} onClick={() => act(a)} disabled={busy} className={`${a.cls} w-full`}>
+                      <Icon name={a.icon} className="text-base" /> {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="glass-card p-6">
+                <p className="section-label mb-3">Approval trail</p>
+                {!trail || trail.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">No actions yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {trail.map((t) => (
+                      <li key={t.id} className="text-sm">
+                        <span className="font-medium">{prettyStatus(t.action)}</span>
+                        <span className="text-on-surface-variant"> · {(t.created_at || '').slice(0, 10)}</span>
+                        {t.note && <p className="text-xs text-on-surface-variant">{t.note}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Boundary>
+    </div>
+  )
+}
+
+// --- Knowledge Base ---------------------------------------------------------
+
+const KB_FIELDS = [
+  { key: 'case_studies', label: 'Case studies', hint: 'Client wins, outcomes, tactics.' },
+  { key: 'brand_voice_samples', label: 'Brand voice samples', hint: '1–3 examples of on-brand writing.' },
+  { key: 'brand_guidelines', label: 'Brand guidelines', hint: 'Tone rules, vocabulary, do/don’t.' },
+  { key: 'unique_facts', label: 'Unique facts & stories', hint: 'Founder story, proprietary insights.' },
+  { key: 'faq', label: 'FAQ', hint: 'Common questions and answers.' },
+  { key: 'notes', label: 'Notes', hint: 'Promotions, banned topics, jargon.' },
+]
+
+function KnowledgeBaseSection({ clientId }) {
+  const { data, loading, error, reload } = useResource(
+    () => Promise.all([fetchKnowledgeBase(clientId), fetchBrandVoice(clientId)]),
+    [clientId],
+  )
+  const [kb, setKb] = useState({})
+  const [voice, setVoice] = useState({})
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saveErr, setSaveErr] = useState(null)
+
+  useEffect(() => {
+    if (data) {
+      setKb(data[0] || {})
+      setVoice(data[1] || {})
+    }
+  }, [data])
+
+  async function save(e) {
+    e.preventDefault()
+    setBusy(true)
+    setSaved(false)
+    setSaveErr(null)
+    try {
+      await saveKnowledgeBase(clientId, {
+        case_studies: kb.case_studies || '',
+        brand_voice_samples: kb.brand_voice_samples || '',
+        brand_guidelines: kb.brand_guidelines || '',
+        unique_facts: kb.unique_facts || '',
+        faq: kb.faq || '',
+        notes: kb.notes || '',
+      })
+      await saveBrandVoice(clientId, {
+        voice_tone: voice.voice_tone || '',
+        target_audience: voice.target_audience || '',
+        sample_copy: voice.sample_copy || '',
+      })
+      setSaved(true)
+      await reload()
+    } catch (e2) {
+      setSaveErr(e2.message ?? String(e2))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Boundary loading={loading} error={error}>
+      <form onSubmit={save} className="space-y-4">
+        <div className="glass-card p-6 space-y-4">
+          <p className="section-label">Brand voice</p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <input value={voice.voice_tone || ''} onChange={(e) => setVoice({ ...voice, voice_tone: e.target.value })} placeholder="Voice & tone (e.g. confident, plain-spoken)" className="input-field" />
+            <input value={voice.target_audience || ''} onChange={(e) => setVoice({ ...voice, target_audience: e.target.value })} placeholder="Target audience" className="input-field" />
+          </div>
+          <textarea value={voice.sample_copy || ''} onChange={(e) => setVoice({ ...voice, sample_copy: e.target.value })} rows={3} placeholder="Sample of the brand's voice to emulate…" className="input-field" />
+        </div>
+
+        {KB_FIELDS.map((f) => (
+          <div key={f.key} className="glass-card p-6">
+            <p className="section-label">{f.label}</p>
+            <p className="mb-2 text-xs text-on-surface-variant">{f.hint}</p>
+            <textarea value={kb[f.key] || ''} onChange={(e) => setKb({ ...kb, [f.key]: e.target.value })} rows={4} className="input-field" />
+          </div>
+        ))}
+
+        <div className="flex items-center gap-3">
+          <button type="submit" disabled={busy} className="btn-primary">
+            <Icon name="save" className="text-base" /> {busy ? 'Saving…' : 'Save knowledge base'}
+          </button>
+          {saved && <span className="text-sm text-emerald-300">Saved.</span>}
+          {saveErr && <span className="text-sm text-error">{saveErr}</span>}
+        </div>
+      </form>
+    </Boundary>
+  )
+}
+
+// --- Blog Studio (import existing posts as drafts) --------------------------
+
+function BlogStudioSection({ clientId }) {
+  const { data, loading, error, reload } = useResource(() => fetchDrafts(clientId, 'all'), [clientId])
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const imported = (data?.rows ?? []).filter((d) => d.content_type)
+
+  async function onFiles(e) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setBusy(true)
+    setMsg(null)
+    try {
+      let n = 0
+      for (const file of files) {
+        const body = await file.text()
+        const topic = file.name.replace(/\.(md|markdown|txt)$/i, '').replace(/[-_]+/g, ' ')
+        await importDraft(clientId, { topic, contentType: 'blog_post', body })
+        n++
+      }
+      setMsg(`Imported ${n} post${n === 1 ? '' : 's'} into Drafts (pending approval).`)
+      await reload()
+    } catch (e2) {
+      setMsg(e2.message ?? String(e2))
+    } finally {
+      setBusy(false)
+      e.target.value = ''
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="glass-card p-6">
+        <div className="mb-4 flex items-baseline gap-2">
+          <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Import</span>
+          <p className="section-label">Bring existing posts in as drafts</p>
+        </div>
+        <label className="btn-primary cursor-pointer inline-flex">
+          <Icon name={busy ? 'progress_activity' : 'upload_file'} className={`text-base ${busy ? 'animate-spin' : ''}`} />
+          {busy ? 'Importing…' : 'Choose .md / .txt files'}
+          <input type="file" multiple accept=".md,.markdown,.txt,text/markdown,text/plain" onChange={onFiles} className="hidden" />
+        </label>
+        {msg && <p className="mt-3 text-sm text-on-surface-variant">{msg}</p>}
+        <p className="mt-2 text-xs text-on-surface-variant">Each file becomes a draft you can edit and approve in the Drafts tab.</p>
+      </div>
+
+      <Boundary loading={loading} error={error} empty={data && imported.length === 0} emptyTitle="Nothing imported yet" emptyHint="Upload markdown or text files above.">
+        {imported.length > 0 && (
+          <ul className="glass-card divide-y divide-outline overflow-hidden p-0">
+            {imported.slice(0, 30).map((d) => (
+              <li key={d.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                <span className="truncate text-sm">{d.topic}</span>
+                <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase ${draftStatusStyle(d.status)}`}>{prettyStatus(d.status)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Boundary>
+    </div>
+  )
+}
+
 // --- page -------------------------------------------------------------------
 
 const SECTION_META = {
@@ -774,6 +1076,8 @@ const SECTION_META = {
   keywords: { label: 'Research', title: 'Keywords', desc: 'Opportunities scored by search volume and difficulty.' },
   reports: { label: 'Audits', title: 'SEO / GEO Reports', desc: 'PageSpeed + AI-summarised site audits.' },
   analysis: { label: 'Strategy', title: 'Site Analysis', desc: 'What you rank for, and what to target next.' },
+  knowledge: { label: 'Brand', title: 'Knowledge Base', desc: 'Brand voice + facts that feed every AI generation.' },
+  blog: { label: 'Import', title: 'Blog Studio', desc: 'Bring existing posts in as drafts.' },
   watchlist: { label: 'Tracking', title: 'Keyword Watchlist', desc: 'Manually tracked target keywords.' },
 }
 
@@ -815,6 +1119,8 @@ export default function SeoGeo() {
               {section === 'keywords' && <KeywordsSection clientId={slug} />}
               {section === 'reports' && <ReportsSection clientId={slug} />}
               {section === 'analysis' && <AnalysisSection clientId={slug} />}
+              {section === 'knowledge' && <KnowledgeBaseSection clientId={slug} />}
+              {section === 'blog' && <BlogStudioSection clientId={slug} />}
               {section === 'watchlist' && <WatchlistSection clientId={slug} clientName={activeClient.name} />}
             </>
           )}

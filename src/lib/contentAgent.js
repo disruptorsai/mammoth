@@ -309,6 +309,82 @@ export async function chatComplete({ system, messages, model = 'claude-sonnet-4-
   return (json.content || []).map((b) => b.text || '').join('').trim()
 }
 
+// --- AI Images ---------------------------------------------------------------
+
+export async function requestImage(clientId, prompt) {
+  const res = await fetch('/api/seo-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId, prompt }),
+  })
+  let body = null
+  try {
+    body = await res.json()
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok) throw new Error(body?.message || `Image generation failed (${res.status}).`)
+  return body
+}
+
+export async function listImages(clientId) {
+  if (!isSupabaseConfigured) return []
+  const { data, error } = await supabase
+    .from('client_images')
+    .select('id,prompt,storage_path,created_at')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false })
+    .limit(60)
+  if (error) throw error
+  return data ?? []
+}
+
+export async function saveImage(clientId, prompt, storage_path) {
+  const { error } = await supabase.from('client_images').insert({ client_id: clientId, prompt, storage_path })
+  if (error) throw error
+}
+
+export async function deleteImage(id) {
+  const { error } = await supabase.from('client_images').delete().eq('id', id)
+  if (error) throw error
+}
+
+// --- Settings (client config + BYOK) -----------------------------------------
+
+export async function fetchClientSettings(clientId) {
+  if (!isSupabaseConfigured) return null
+  const { data, error } = await supabase
+    .from('clients')
+    .select('name,wordpress_url,auto_publish_on_approval,competitor_domains,plan,token_allowance,top_up_tokens')
+    .eq('id', clientId)
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function saveClientSettings(clientId, fields) {
+  const { error } = await supabase.from('clients').update(fields).eq('id', clientId)
+  if (error) throw error
+}
+
+export async function listApiKeys(clientId) {
+  if (!isSupabaseConfigured) return []
+  const { data, error } = await supabase
+    .from('api_keys')
+    .select('provider,last_four,last_rotated_at')
+    .eq('client_id', clientId)
+  if (error) throw error
+  return data ?? []
+}
+
+export async function saveApiKey(clientId, provider, secret) {
+  const { error } = await supabase.from('api_keys').upsert(
+    { client_id: clientId, provider, secret, last_four: secret.slice(-4), last_rotated_at: new Date().toISOString() },
+    { onConflict: 'client_id,provider' },
+  )
+  if (error) throw error
+}
+
 // Trigger native draft generation (api/seo-generate.js, or the vite dev
 // middleware). Resolves when the draft is created — synchronously in the inline
 // path, or as a 'generating' row in the Inngest async path (poll for completion).

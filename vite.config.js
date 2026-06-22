@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { generateDraft } from './api/_seoGenerateCore.js'
 import { researchKeyword, runSiteAnalysis, runSeoReport } from './api/_seoJobsCore.js'
+import { generateImage } from './api/_seoImageCore.js'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -19,6 +20,7 @@ export default defineConfig(({ mode }) => {
     DATAFORSEO_DEFAULT_LOGIN: env.DATAFORSEO_DEFAULT_LOGIN || '',
     DATAFORSEO_DEFAULT_PASSWORD: env.DATAFORSEO_DEFAULT_PASSWORD || '',
     GOOGLE_PSI_KEY: env.GOOGLE_PSI_KEY || '',
+    OPENAI_API_KEY: env.OPENAI_API_KEY || '',
   }
 
   // Dev equivalent of api/seo-generate.js — runs the generation core inline so
@@ -86,8 +88,35 @@ export default defineConfig(({ mode }) => {
     },
   }
 
+  // Dev equivalent of api/seo-image.js.
+  const seoImageDevApi = {
+    name: 'seo-image-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api/seo-image', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'method_not_allowed' }))
+          return
+        }
+        try {
+          let raw = ''
+          for await (const chunk of req) raw += chunk
+          const body = raw ? JSON.parse(raw) : {}
+          const result = await generateImage({ env: GEN_ENV, prompt: body.prompt })
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(result))
+        } catch (e) {
+          res.statusCode = 502
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'image_failed', message: String(e?.message || e) }))
+        }
+      })
+    },
+  }
+
   return {
-    plugins: [react(), seoGenerateDevApi, seoJobDevApi],
+    plugins: [react(), seoGenerateDevApi, seoJobDevApi, seoImageDevApi],
     server: {
       port: 5173,
       open: true,

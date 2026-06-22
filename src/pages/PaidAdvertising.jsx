@@ -48,7 +48,7 @@ function PaidAdsGate({ client }) {
         </div>
         <div className="relative z-10 flex flex-col items-center gap-5">
           <div className="w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center">
-            <Icon name="lock" filled className="text-black text-3xl" />
+            <Icon name="lock" filled className="text-on-primary text-3xl" />
           </div>
           <div>
             <h2 className="font-headline-lg text-2xl text-primary mb-2">
@@ -63,7 +63,7 @@ function PaidAdsGate({ client }) {
             href={BOOKING_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="gold-gradient text-black font-bold px-7 py-3.5 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity glow-gold"
+            className="gold-gradient text-on-primary font-bold px-7 py-3.5 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity glow-gold"
           >
             <Icon name="calendar_month" className="text-lg" />
             Schedule the call now
@@ -232,7 +232,7 @@ function CampaignModal({ campaign, onClose, onSave, onDelete }) {
             </button>
             <button
               type="submit"
-              className="gold-gradient text-black font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
+              className="gold-gradient text-on-primary font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
             >
               {isNew ? 'Create' : 'Save'}
             </button>
@@ -318,7 +318,7 @@ function CopyGenerator({ clientId, clientName, show }) {
           <button
             onClick={generate}
             disabled={busy || !brief.trim()}
-            className="w-full py-4 bg-primary text-black font-bold rounded-lg shadow-[0_4px_20px_rgba(191,149,63,0.3)] hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+            className="w-full py-4 bg-primary text-on-primary font-bold rounded-lg shadow-[0_4px_20px_rgba(191,149,63,0.3)] hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
           >
             {busy && <Icon name="progress_activity" className="animate-spin" />}
             {busy ? 'Generating…' : 'Generate Copy Assets'}
@@ -338,10 +338,10 @@ function CopyGenerator({ clientId, clientName, show }) {
                   }}
                   aria-label="Copy output"
                 >
-                  <Icon name="content_copy" className="text-on-surface-variant cursor-pointer hover:text-white" />
+                  <Icon name="content_copy" className="text-on-surface-variant cursor-pointer hover:text-on-surface" />
                 </button>
                 <button onClick={generate} disabled={busy} aria-label="Generate again">
-                  <Icon name="refresh" className="text-on-surface-variant cursor-pointer hover:text-white" />
+                  <Icon name="refresh" className="text-on-surface-variant cursor-pointer hover:text-on-surface" />
                 </button>
               </div>
             )}
@@ -521,7 +521,7 @@ export default function PaidAdvertising() {
             <h3 className="font-headline-lg text-headline-lg font-bold">Campaigns</h3>
             <button
               onClick={() => setModal({ campaign: { ...EMPTY } })}
-              className="gold-gradient text-black font-bold px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity text-sm"
+              className="gold-gradient text-on-primary font-bold px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity text-sm"
             >
               <Icon name="add" /> New Campaign
             </button>

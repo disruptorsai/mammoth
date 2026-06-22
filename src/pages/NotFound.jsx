@@ -15,7 +15,7 @@ export default function NotFound() {
         </div>
         <Link
           to="/"
-          className="px-6 py-3 gold-gradient text-black font-bold rounded-full hover:opacity-90 transition-opacity"
+          className="px-6 py-3 gold-gradient text-on-primary font-bold rounded-full hover:opacity-90 transition-opacity"
         >
           Back to Mission Control
         </Link>

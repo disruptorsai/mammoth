@@ -70,7 +70,7 @@ function CaptionGenerator({ client }) {
       <div className="bg-surface-container border border-outline rounded-xl p-8 space-y-5">
         <div className="flex items-center gap-3">
           <Icon name="auto_awesome" filled className="text-primary" />
-          <h3 className="font-headline-lg text-headline-lg text-white">AI Caption Generator</h3>
+          <h3 className="font-headline-lg text-headline-lg text-on-surface">AI Caption Generator</h3>
         </div>
         <div className="space-y-2">
           <label className="font-label-mono text-[12px] uppercase text-on-surface-variant tracking-wider">Topic</label>
@@ -121,7 +121,7 @@ function CaptionGenerator({ client }) {
           <p className="font-label-mono text-label-mono text-primary text-xs uppercase">Output</p>
           {output && (
             <button onClick={generate} disabled={busy} aria-label="Generate again">
-              <Icon name="refresh" className="text-on-surface-variant hover:text-white" />
+              <Icon name="refresh" className="text-on-surface-variant hover:text-on-surface" />
             </button>
           )}
         </div>
@@ -140,7 +140,7 @@ function CaptionGenerator({ client }) {
               <button
                 onClick={sendToBoard}
                 disabled={sending}
-                className="flex-1 py-2.5 gold-gradient text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="flex-1 py-2.5 gold-gradient text-on-primary rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {sending ? 'Sending…' : 'Send to Content Board'}
               </button>
@@ -265,7 +265,7 @@ export default function SocialMedia() {
                 {card.label}
               </span>
               <div className="flex items-end gap-2">
-                <h3 className="text-3xl font-bold text-white">{card.value}</h3>
+                <h3 className="text-3xl font-bold text-on-surface">{card.value}</h3>
                 {statSub && (
                   <span className="text-on-surface-variant text-sm mb-1 font-medium">{statSub}</span>
                 )}
@@ -277,7 +277,7 @@ export default function SocialMedia() {
           <div className="bg-surface-container border border-outline p-6 rounded-xl space-y-2 group hover:border-primary transition-colors duration-300">
             <span className="font-label-mono text-label-mono text-on-surface-variant uppercase">Active Channels</span>
             <div className="flex items-end gap-2">
-              <h3 className="text-3xl font-bold text-white">
+              <h3 className="text-3xl font-bold text-on-surface">
                 {channelCount === null ? '—' : channelCount}
               </h3>
               <span className="text-on-surface-variant text-sm mb-1 font-medium">
@@ -302,7 +302,7 @@ export default function SocialMedia() {
           <div className="col-span-12 lg:col-span-8 bg-surface-container border border-outline rounded-xl p-8 flex flex-col h-[400px]">
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h3 className="font-headline-lg text-headline-lg text-white">Posting Activity</h3>
+                <h3 className="font-headline-lg text-headline-lg text-on-surface">Posting Activity</h3>
                 <p className="text-on-surface-variant font-body-md">
                   Posts per day{snapshot?.group ? ` — ${snapshot.group.name}` : ''}.
                 </p>
@@ -364,7 +364,7 @@ export default function SocialMedia() {
           <div className="col-span-12 lg:col-span-4 bg-surface-container border border-outline rounded-xl p-8 flex flex-col h-[400px]">
             <div className="mb-6 flex items-start justify-between gap-3">
               <div>
-                <h3 className="font-headline-lg text-headline-lg text-white">Channel Status</h3>
+                <h3 className="font-headline-lg text-headline-lg text-on-surface">Channel Status</h3>
                 <p className="text-on-surface-variant font-body-md">
                   {channelsState === 'ready'
                     ? 'Connected via Vista Social.'
@@ -404,7 +404,7 @@ export default function SocialMedia() {
                   <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center text-red-400">
                     <Icon name="cloud_off" />
                   </div>
-                  <p className="text-sm font-bold text-white">Channels unavailable</p>
+                  <p className="text-sm font-bold text-on-surface">Channels unavailable</p>
                   <p className="text-xs text-on-surface-variant leading-relaxed">{channelsError}</p>
                   <button
                     onClick={loadChannels}
@@ -420,7 +420,7 @@ export default function SocialMedia() {
                   <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
                     <Icon name="hub" />
                   </div>
-                  <p className="text-sm font-bold text-white">No channels connected</p>
+                  <p className="text-sm font-bold text-on-surface">No channels connected</p>
                   <p className="text-xs text-on-surface-variant leading-relaxed">
                     Connect social profiles in Vista Social and they'll appear here automatically.
                   </p>
@@ -475,17 +475,17 @@ export default function SocialMedia() {
           {/* AI Content Generator — lives in the Generators tab */}
           <div className="col-span-12 lg:col-span-5 bg-surface-container border border-outline rounded-xl p-8 flex flex-col justify-center items-center text-center gap-4">
             <div className="w-12 h-12 rounded-xl gold-gradient flex items-center justify-center">
-              <Icon name="auto_awesome" filled className="text-black" />
+              <Icon name="auto_awesome" filled className="text-on-primary" />
             </div>
             <div>
-              <h3 className="font-headline-lg text-headline-lg text-white mb-1">AI Caption Generator</h3>
+              <h3 className="font-headline-lg text-headline-lg text-on-surface mb-1">AI Caption Generator</h3>
               <p className="text-on-surface-variant text-sm max-w-xs">
                 Generate platform-tuned captions with AI and push them straight to the content board.
               </p>
             </div>
             <button
               onClick={() => setActiveTab('Generators')}
-              className="gold-gradient text-black font-bold px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity text-sm"
+              className="gold-gradient text-on-primary font-bold px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity text-sm"
             >
               Open Generator
             </button>

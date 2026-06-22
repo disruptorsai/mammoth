@@ -60,7 +60,7 @@ export default function Sidebar({ open, onClose }) {
 
         {/* Footer actions */}
         <div className="p-4 mt-auto space-y-2">
-          <button className="w-full gold-gradient text-black font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-opacity glow-gold">
+          <button className="w-full gold-gradient text-on-primary font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-opacity glow-gold">
             <Icon name="add" />
             <span>New Campaign</span>
           </button>

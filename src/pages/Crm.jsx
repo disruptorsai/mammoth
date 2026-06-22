@@ -87,7 +87,7 @@ function ActivityComposer({ leads, onAdded }) {
         <button
           type="submit"
           disabled={busy || !body.trim()}
-          className="gold-gradient text-black font-bold px-3 py-1.5 rounded-lg text-xs disabled:opacity-50"
+          className="gold-gradient text-on-primary font-bold px-3 py-1.5 rounded-lg text-xs disabled:opacity-50"
         >
           Log
         </button>
@@ -380,7 +380,7 @@ export default function Crm() {
               </button>
               <button
                 type="submit"
-                className="gold-gradient text-black font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
+                className="gold-gradient text-on-primary font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
               >
                 Save
               </button>

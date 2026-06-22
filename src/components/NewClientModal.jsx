@@ -164,7 +164,7 @@ export default function NewClientModal({ client = null, onClose }) {
           <button
             type="submit"
             disabled={busy || !name.trim()}
-            className="gold-gradient text-black font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="gold-gradient text-on-primary font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {busy ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save changes' : 'Create client'}
           </button>

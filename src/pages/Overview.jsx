@@ -211,7 +211,7 @@ export default function Overview() {
                 ))}
               </div>
             </div>
-            <div className="flex-1 min-h-[260px] flex items-end gap-1 px-4 py-6 border-b border-l border-outline/30 relative">
+            <div className="flex-1 min-h-[260px] flex items-end justify-center gap-2 px-4 py-6 border-b border-l border-outline/30 relative">
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10 py-6">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="w-full border-t border-white" />
@@ -235,7 +235,7 @@ export default function Overview() {
                 chartSeries.map((d) => (
                   <div
                     key={d.day}
-                    className="flex-1 bg-primary/20 hover:bg-primary transition-colors rounded-t-lg group relative"
+                    className="flex-1 max-w-[2.75rem] bg-primary/20 hover:bg-primary transition-colors rounded-t-lg group relative"
                     style={{ height: `${Math.max(4, (d.count / chartMax) * 100)}%` }}
                   >
                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity mono-data text-xs text-primary font-bold whitespace-nowrap">

@@ -1,8 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import TopBar from '../components/TopBar'
 import Icon from '../components/Icon'
 import { useToast } from '../components/Toast'
+import NewClientModal from '../components/NewClientModal'
 import { useClient } from '../context/ClientContext'
 import { fetchKeywords, createKeyword, deleteKeyword } from '../lib/seoKeywords'
 import {
@@ -10,6 +13,7 @@ import {
   fetchDrafts,
   fetchCaKeywords,
   fetchSeoReports,
+  fetchSeoReport,
   fetchSiteAnalysis,
   requestDraftGeneration,
   requestKeywordResearch,
@@ -130,6 +134,38 @@ function Boundary({ loading, error, empty, emptyTitle, emptyHint, children }) {
       </div>
     )
   return children
+}
+
+// Render AI text as markdown (headings, lists, bold, links, code, tables).
+function Markdown({ children }) {
+  return (
+    <div className="md">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children || ''}</ReactMarkdown>
+    </div>
+  )
+}
+
+// Copy-to-clipboard button (copies the raw markdown source).
+function CopyButton({ text, label = 'Copy' }) {
+  const [done, setDone] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text || '')
+          setDone(true)
+          setTimeout(() => setDone(false), 1500)
+        } catch {
+          /* clipboard blocked */
+        }
+      }}
+      className="inline-flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary transition-colors"
+    >
+      <Icon name={done ? 'check' : 'content_copy'} className="text-sm" />
+      {done ? 'Copied' : label}
+    </button>
+  )
 }
 
 // Content Agent style page header (left gold bar + section label + title + desc).
@@ -753,8 +789,126 @@ function KeywordsSection({ clientId }) {
 
 // --- SEO Reports ------------------------------------------------------------
 
+function scoreColor(s) {
+  if (s == null) return 'text-on-surface-variant'
+  if (s >= 90) return 'text-emerald-400'
+  if (s >= 50) return 'text-amber-400'
+  return 'text-error'
+}
+
+function ReportDetail({ reportId, onBack }) {
+  const { data: r, loading, error } = useResource(() => fetchSeoReport(reportId), [reportId])
+  const rj = r?.report_json || {}
+  const ps = rj.pagespeed || null
+  const cwv = ps?.cwv || {}
+  const audits = Array.isArray(ps?.audits) ? ps.audits : []
+  // Extra findings present on Content Agent reports (best-effort).
+  const schema = rj.schema || null
+  const brokenLinks = Array.isArray(rj.brokenLinks) ? rj.brokenLinks : null
+  const known = new Set(['pagespeed', 'synthesis', 'providers', 'generated_at', 'schema', 'brokenLinks'])
+  const extraKeys = Object.keys(rj).filter((k) => !known.has(k))
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-primary">
+        <Icon name="arrow_back" className="text-base" /> Back to reports
+      </button>
+      <Boundary loading={loading} error={error}>
+        {r && (
+          <div className="space-y-4">
+            <div>
+              <p className="section-label">SEO / GEO report</p>
+              <h2 className="mt-1 font-display text-2xl gold-shine">{r.domain}</h2>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">{(r.generated_at || '').slice(0, 10)}</p>
+            </div>
+
+            {rj.synthesis && (
+              <div className="glass-card p-6">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="section-label">Executive summary</p>
+                  <CopyButton text={rj.synthesis} />
+                </div>
+                <Markdown>{rj.synthesis}</Markdown>
+              </div>
+            )}
+
+            {ps && (
+              <>
+                <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                  {[
+                    ['Performance', ps.performance],
+                    ['SEO', ps.seo],
+                    ['Accessibility', ps.accessibility],
+                    ['Best practices', ps.bestPractices],
+                  ].map(([label, score]) => (
+                    <div key={label} className="glass-card p-5 text-center">
+                      <p className="section-label">{label}</p>
+                      <p className={`mt-2 font-display text-3xl ${scoreColor(score)}`}>{score ?? '—'}</p>
+                    </div>
+                  ))}
+                </section>
+
+                <section className="glass-card p-6">
+                  <p className="section-label mb-3">Core Web Vitals</p>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div><p className="font-display text-2xl">{cwv.lcpMs != null ? `${(cwv.lcpMs / 1000).toFixed(2)}s` : '—'}</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-on-surface-variant">LCP</p></div>
+                    <div><p className="font-display text-2xl">{cwv.inpMs != null ? `${Math.round(cwv.inpMs)}ms` : '—'}</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-on-surface-variant">INP</p></div>
+                    <div><p className="font-display text-2xl">{cwv.clsValue != null ? Number(cwv.clsValue).toFixed(3) : '—'}</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-on-surface-variant">CLS</p></div>
+                  </div>
+                </section>
+
+                {audits.length > 0 && (
+                  <section className="glass-card p-6">
+                    <p className="section-label mb-3">Opportunities ({audits.length})</p>
+                    <ul className="space-y-2">
+                      {audits.map((a) => (
+                        <li key={a.id} className="flex items-start justify-between gap-3 border-b border-outline/40 pb-2 text-sm last:border-0">
+                          <span className="text-on-surface/90">{a.title || a.id}</span>
+                          {a.displayValue && <span className="shrink-0 font-mono text-xs text-on-surface-variant">{a.displayValue}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </>
+            )}
+
+            {(schema || brokenLinks) && (
+              <section className="grid gap-4 md:grid-cols-2">
+                {schema && (
+                  <div className="glass-card p-6">
+                    <p className="section-label mb-2">Structured data</p>
+                    <p className="text-sm text-on-surface-variant">{schema.itemCount ?? schema.count ?? 0} schema items{schema.hasFAQPage ? ' · FAQ' : ''}{schema.hasArticle ? ' · Article' : ''}</p>
+                  </div>
+                )}
+                {brokenLinks && (
+                  <div className="glass-card p-6">
+                    <p className="section-label mb-2">Broken links</p>
+                    <p className="text-sm text-on-surface-variant">{brokenLinks.filter((b) => !b.ok).length} broken of {brokenLinks.length} checked</p>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {extraKeys.length > 0 && (
+              <details className="glass-card p-5">
+                <summary className="cursor-pointer text-sm text-on-surface-variant">Raw report data</summary>
+                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-on-surface-variant">{JSON.stringify(Object.fromEntries(extraKeys.map((k) => [k, rj[k]])), null, 2)}</pre>
+              </details>
+            )}
+          </div>
+        )}
+      </Boundary>
+    </div>
+  )
+}
+
 function ReportsSection({ clientId }) {
   const { data, loading, error, reload } = useResource(() => fetchSeoReports(clientId), [clientId])
+  const [selected, setSelected] = useState(null)
+
+  if (selected) return <ReportDetail reportId={selected} onBack={() => setSelected(null)} />
+
   return (
     <div className="space-y-4">
       <JobRunner
@@ -781,16 +935,24 @@ function ReportsSection({ clientId }) {
         {data && data.reports.length > 0 && (
           <ul className="glass-card divide-y divide-outline overflow-hidden p-0">
             {data.reports.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-surface-container-low">
-                <div>
-                  <p className="font-display text-lg">{r.domain}</p>
-                  <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.15em] text-on-surface-variant">
-                    {(r.generated_at || '').slice(0, 10)}
-                  </p>
-                </div>
-                <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-primary">
-                  {r.usage_billed ? 'ready' : 'draft'}
-                </span>
+              <li key={r.id}>
+                <button
+                  onClick={() => setSelected(r.id)}
+                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-surface-container-low"
+                >
+                  <div>
+                    <p className="font-display text-lg">{r.domain}</p>
+                    <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.15em] text-on-surface-variant">
+                      {(r.generated_at || '').slice(0, 10)}
+                    </p>
+                  </div>
+                  <span className="flex items-center gap-2">
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-primary">
+                      {r.usage_billed ? 'ready' : 'draft'}
+                    </span>
+                    <Icon name="chevron_right" className="text-on-surface-variant text-base" />
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
@@ -1038,6 +1200,7 @@ function DraftEditor({ draftId, onBack }) {
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
+  const [preview, setPreview] = useState(false)
   const toast = useToastShow()
 
   useEffect(() => {
@@ -1091,15 +1254,28 @@ function DraftEditor({ draftId, onBack }) {
                     {prettyStatus(draft.status)}
                   </span>
                 </div>
-                <textarea
-                  value={text}
-                  onChange={(e) => {
-                    setText(e.target.value)
-                    setDirty(true)
-                  }}
-                  rows={22}
-                  className="input-field mt-4 font-mono text-sm leading-relaxed"
-                />
+                <div className="mt-4 flex items-center gap-2">
+                  <div className="flex rounded-lg border border-outline p-0.5">
+                    <button onClick={() => setPreview(false)} className={`rounded-md px-3 py-1 text-xs ${!preview ? 'bg-primary/15 text-primary' : 'text-on-surface-variant'}`}>Edit</button>
+                    <button onClick={() => setPreview(true)} className={`rounded-md px-3 py-1 text-xs ${preview ? 'bg-primary/15 text-primary' : 'text-on-surface-variant'}`}>Preview</button>
+                  </div>
+                  <div className="ml-auto"><CopyButton text={text} /></div>
+                </div>
+                {preview ? (
+                  <div className="mt-3 max-h-[34rem] overflow-y-auto rounded-lg border border-outline bg-surface-container-low p-4">
+                    <Markdown>{text}</Markdown>
+                  </div>
+                ) : (
+                  <textarea
+                    value={text}
+                    onChange={(e) => {
+                      setText(e.target.value)
+                      setDirty(true)
+                    }}
+                    rows={22}
+                    className="input-field mt-3 font-mono text-sm leading-relaxed"
+                  />
+                )}
                 <div className="mt-3 flex items-center gap-3">
                   <button onClick={save} disabled={!dirty || busy} className="btn-primary">
                     <Icon name="save" className="text-base" /> {busy ? 'Saving…' : 'Save changes'}
@@ -1523,8 +1699,17 @@ function AiAgentSection({ clientId }) {
             ) : (
               messages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-4 py-2.5 text-sm ${m.role === 'user' ? 'bg-primary/15 text-on-surface' : 'bg-surface-container-low text-on-surface-variant'}`}>
-                    {m.content}
+                  <div className={`max-w-[85%] rounded-xl px-4 py-2.5 ${m.role === 'user' ? 'whitespace-pre-wrap text-sm bg-primary/15 text-on-surface' : 'bg-surface-container-low'}`}>
+                    {m.role === 'user' ? (
+                      m.content
+                    ) : (
+                      <>
+                        <Markdown>{m.content}</Markdown>
+                        <div className="mt-1.5 border-t border-outline/40 pt-1.5">
+                          <CopyButton text={m.content} />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ))
@@ -1629,6 +1814,7 @@ function SettingsSection({ clientId }) {
     () => Promise.all([fetchClientSettings(clientId), fetchBrandVoice(clientId), listApiKeys(clientId)]),
     [clientId],
   )
+  const { activeClient, removeClient } = useClient()
   const [cfg, setCfg] = useState({})
   const [voice, setVoice] = useState({})
   const [competitors, setCompetitors] = useState(['', '', ''])
@@ -1636,7 +1822,22 @@ function SettingsSection({ clientId }) {
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState(null)
+  const [showEdit, setShowEdit] = useState(false)
+  const [confirmName, setConfirmName] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const toast = useToastShow()
+
+  async function deleteClient() {
+    if (confirmName.trim() !== (activeClient?.name || '')) return
+    setDeleting(true)
+    try {
+      await removeClient(clientId)
+      // ClientContext switches to another client and the page re-renders.
+    } catch (e2) {
+      setErr(e2.message ?? String(e2))
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     if (data) {
@@ -1689,6 +1890,17 @@ function SettingsSection({ clientId }) {
   return (
     <Boundary loading={loading} error={error}>
       <div className="space-y-4">
+        {/* Workspace — edit client details (moved out of the sidebar switcher) */}
+        <div className="glass-card p-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="section-label">Workspace</p>
+            <p className="mt-1 text-sm text-on-surface-variant">{activeClient?.name} — edit name, initials, health and feature access.</p>
+          </div>
+          <button onClick={() => setShowEdit(true)} className="btn-secondary">
+            <Icon name="edit" className="text-base" /> Edit client details
+          </button>
+        </div>
+
         <form onSubmit={saveConfig} className="space-y-4">
           <div className="glass-card p-6 space-y-3">
             <p className="section-label">Brand voice</p>
@@ -1752,7 +1964,36 @@ function SettingsSection({ clientId }) {
             </div>
           ))}
         </div>
+
+        {/* Danger zone — delete the client (moved out of the sidebar switcher) */}
+        <div className="rounded-xl border border-error/40 bg-error/5 p-6 space-y-3">
+          <p className="section-label text-error">Danger zone</p>
+          <p className="text-sm text-on-surface-variant">
+            Permanently delete <span className="text-on-surface">{activeClient?.name}</span> and all of its data in Mission Control
+            (tasks, content, leads, campaigns, keywords, usage). Logins are unlinked, not deleted; external accounts (GoHighLevel,
+            socials) are untouched.
+          </p>
+          <p className="text-xs text-on-surface-variant">
+            Type the client name <span className="font-mono text-on-surface">{activeClient?.name}</span> to confirm.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              placeholder="Client name"
+              className="input-field flex-1 min-w-[200px]"
+            />
+            <button
+              onClick={deleteClient}
+              disabled={deleting || confirmName.trim() !== (activeClient?.name || '')}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-error/90 px-5 py-2.5 text-sm font-bold text-black transition-colors hover:bg-error disabled:opacity-50"
+            >
+              <Icon name="delete_forever" className="text-base" /> {deleting ? 'Deleting…' : 'Delete client'}
+            </button>
+          </div>
+        </div>
       </div>
+      {showEdit && activeClient && <NewClientModal client={activeClient} onClose={() => setShowEdit(false)} />}
     </Boundary>
   )
 }

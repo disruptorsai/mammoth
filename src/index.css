@@ -5,6 +5,52 @@
 :root {
   --font-main: 'Hanken Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Theme tokens (RGB channels). Default = dark. */
+  --c-background: 14 14 14;
+  --c-surface: 14 14 14;
+  --c-surface-container: 26 26 26;
+  --c-surface-container-low: 31 27 21;
+  --c-surface-container-high: 46 41 35;
+  --c-surface-container-lowest: 17 14 8;
+  --c-surface-variant: 57 52 45;
+  --c-on-surface: 255 255 255;
+  --c-on-surface-variant: 210 197 178;
+  /* Dark mode keeps Mammoth's gold accent. */
+  --c-primary: 238 192 101;
+  --c-primary-container: 191 149 63;
+  --c-on-primary: 65 45 0;
+  --c-on-primary-container: 68 48 0;
+  --c-outline: 62 62 62;
+  --c-outline-variant: 78 70 55;
+  --c-error: 255 180 171;
+  --c-secondary: 233 194 85;
+  --c-text-primary: 255 255 255;
+  --c-card-shadow: 0 0 0 / 0.3;
+  --c-accent-grad: linear-gradient(135deg, #bf953f 0%, #eed08a 50%, #b38728 100%);
+}
+
+[data-theme='light'] {
+  --c-background: 245 246 248;
+  --c-surface: 245 246 248;
+  --c-surface-container: 255 255 255;
+  --c-surface-container-low: 241 245 249;
+  --c-surface-container-high: 233 238 244;
+  --c-surface-container-lowest: 255 255 255;
+  --c-surface-variant: 226 232 240;
+  --c-on-surface: 30 41 59;
+  --c-on-surface-variant: 71 85 105;
+  --c-primary: 37 99 235;
+  --c-primary-container: 37 99 235;
+  --c-on-primary: 255 255 255;
+  --c-on-primary-container: 219 234 254;
+  --c-outline: 203 213 225;
+  --c-outline-variant: 148 163 184;
+  --c-error: 220 38 38;
+  --c-secondary: 37 99 235;
+  --c-text-primary: 30 41 59;
+  --c-card-shadow: 100 116 139 / 0.18;
+  --c-accent-grad: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #1d4ed8 100%);
 }
 
 html,
@@ -15,8 +61,8 @@ body,
 
 body {
   font-family: var(--font-main);
-  background-color: #0e0e0e;
-  color: #ffffff;
+  background-color: rgb(var(--c-background));
+  color: rgb(var(--c-on-surface));
   -webkit-font-smoothing: antialiased;
   margin: 0;
 }
@@ -32,18 +78,18 @@ body {
 }
 
 .gold-gradient {
-  background: linear-gradient(135deg, #bf953f 0%, #eed08a 50%, #b38728 100%);
+  background: var(--c-accent-grad);
 }
 
 .gold-gradient-text {
-  background: linear-gradient(to right, #bf953f, #eec065);
+  background: var(--c-accent-grad);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .glow-gold {
-  box-shadow: 0 0 15px rgba(191, 149, 63, 0.2);
+  box-shadow: 0 0 15px rgb(var(--c-primary) / 0.25);
 }
 
 /* Premium scrollbars (matches the Stitch exports) */
@@ -52,14 +98,14 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0e0e0e;
+  background: rgb(var(--c-background));
 }
 ::-webkit-scrollbar-thumb {
-  background: #3e3e3e;
+  background: rgb(var(--c-outline));
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #bf953f;
+  background: rgb(var(--c-primary));
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -74,12 +120,12 @@ body {
 }
 
 .bento-card {
-  background-color: #1a1a1a;
-  border: 1px solid #3e3e3e;
+  background-color: rgb(var(--c-surface-container));
+  border: 1px solid rgb(var(--c-outline));
   transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
 }
 .bento-card:hover {
-  border-color: #bf953f;
+  border-color: rgb(var(--c-primary));
 }
 
 /* Content Agent design-system classes, remapped to Mammoth's black/gold tokens.
@@ -97,16 +143,17 @@ body {
   }
   .glass-card {
     @apply bg-surface-container border border-outline rounded-xl;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 2px 0 rgb(var(--c-card-shadow));
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
   .glass-card:hover {
     @apply border-outline-variant;
-    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 4px 14px -2px rgb(var(--c-card-shadow));
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-black transition-opacity disabled:opacity-50;
-    background: linear-gradient(135deg, #bf953f 0%, #eed08a 50%, #b38728 100%);
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-opacity disabled:opacity-50;
+    background: var(--c-accent-grad);
+    color: rgb(var(--c-on-primary));
   }
   .btn-primary:hover {
     @apply opacity-90;
@@ -132,10 +179,70 @@ body {
     @apply border-primary text-on-surface;
   }
   .nav-pill.active {
-    @apply border-transparent text-black;
-    background: linear-gradient(135deg, #bf953f 0%, #eed08a 50%, #b38728 100%);
+    @apply border-transparent;
+    background: var(--c-accent-grad);
+    color: rgb(var(--c-on-primary));
   }
 }
+
+/* Rendered markdown (AI responses). Token-based so it adapts to the theme. */
+.md {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: rgb(var(--c-on-surface) / 0.9);
+}
+.md > :first-child {
+  margin-top: 0;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
+.md p {
+  margin: 0.5rem 0;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  font-family: var(--font-main);
+  font-weight: 700;
+  color: rgb(var(--c-on-surface));
+  margin: 0.85rem 0 0.4rem;
+  line-height: 1.3;
+}
+.md h1 { font-size: 1.25rem; }
+.md h2 { font-size: 1.1rem; }
+.md h3 { font-size: 1rem; }
+.md ul { list-style: disc; padding-left: 1.25rem; margin: 0.5rem 0; }
+.md ol { list-style: decimal; padding-left: 1.25rem; margin: 0.5rem 0; }
+.md li { margin: 0.2rem 0; }
+.md strong { color: rgb(var(--c-on-surface)); font-weight: 600; }
+.md a { color: rgb(var(--c-primary)); text-decoration: underline; }
+.md code {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  background: rgb(var(--c-surface-container-low));
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+}
+.md pre {
+  background: rgb(var(--c-surface-container-low));
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+.md pre code { background: transparent; padding: 0; }
+.md blockquote {
+  border-left: 2px solid rgb(var(--c-outline));
+  padding-left: 0.75rem;
+  color: rgb(var(--c-on-surface-variant));
+  margin: 0.5rem 0;
+}
+.md hr { border: 0; border-top: 1px solid rgb(var(--c-outline)); margin: 0.85rem 0; }
+.md table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+.md th,
+.md td { border: 1px solid rgb(var(--c-outline)); padding: 0.3rem 0.5rem; text-align: left; }
 
 @keyframes fadeInUp {
   from {

@@ -82,6 +82,61 @@ body {
   border-color: #bf953f;
 }
 
+/* Content Agent design-system classes, remapped to Mammoth's black/gold tokens.
+   Lets the ported Content Agent markup keep its original class names. */
+@layer components {
+  .font-display {
+    font-family: var(--font-main);
+  }
+  .section-label {
+    @apply text-[11px] font-bold uppercase tracking-[0.12em] text-on-surface-variant;
+  }
+  .gold-shine {
+    @apply text-primary font-bold;
+    letter-spacing: -0.02em;
+  }
+  .glass-card {
+    @apply bg-surface-container border border-outline rounded-xl;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .glass-card:hover {
+    @apply border-outline-variant;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-black transition-opacity disabled:opacity-50;
+    background: linear-gradient(135deg, #bf953f 0%, #eed08a 50%, #b38728 100%);
+  }
+  .btn-primary:hover {
+    @apply opacity-90;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-on-surface bg-surface-container border border-outline transition-colors disabled:opacity-50;
+  }
+  .btn-secondary:hover {
+    @apply border-primary;
+  }
+  .input-field {
+    @apply w-full bg-surface-container-low border border-outline rounded-lg px-3 py-2.5 text-sm text-on-surface;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input-field:focus {
+    @apply outline-none border-primary;
+    box-shadow: 0 0 0 3px rgba(238, 192, 101, 0.12);
+  }
+  .nav-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-outline bg-surface-container px-3.5 py-1.5 text-[13px] font-medium text-on-surface-variant transition-colors;
+  }
+  .nav-pill:hover {
+    @apply border-primary text-on-surface;
+  }
+  .nav-pill.active {
+    @apply border-transparent text-black;
+    background: linear-gradient(135deg, #bf953f 0%, #eed08a 50%, #b38728 100%);
+  }
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;

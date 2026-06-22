@@ -7,7 +7,6 @@
     { "source": "/vista-mcp", "destination": "/api/vista-mcp" },
     { "source": "/claude-api", "destination": "/api/claude" },
     { "source": "/ghl-api/:path*", "destination": "/api/ghl?path=:path*" },
-    { "source": "/content-agent-api", "destination": "/api/content-agent" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

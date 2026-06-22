@@ -1,12 +1,7 @@
-// SEO/GEO data access. As of Phase 1 of the unification, the data lives in
-// Mission Control's OWN Supabase project (imported via scripts/import-content-agent.mjs),
-// so the read path here goes straight through the shared `supabase` client, keyed
-// by the Mammoth client slug — exactly like seoKeywords.js / tasks.js.
-//
-// The only thing that still touches the Content Agent project is the admin link
-// picker (fetchCaClients), which lists the source workspaces so an admin can map
-// a Mammoth client to one for import. That convenience proxy goes away once
-// native generation (Phase 2) makes the import unnecessary.
+// SEO/GEO data access. All data lives in Mission Control's OWN Supabase project,
+// read through the shared `supabase` client keyed by the Mammoth client slug —
+// exactly like seoKeywords.js / tasks.js. Writes (generation) go through the
+// /api/seo-* endpoints. Nothing here touches any other project's database.
 import { supabase, isSupabaseConfigured } from './supabase'
 
 const since30d = () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
@@ -109,12 +104,6 @@ export async function fetchSiteAnalysis(clientId) {
   return { website: analysis?.domain ?? '', analysis }
 }
 
-// --- admin link picker (lists Content Agent source workspaces for import) ----
-// This is the one remaining read against the Content Agent project, via the
-// slim same-origin proxy. Import-config only; not on the live data path.
-
-export const isNotConfigured = (err) => err?.code === 'not_configured'
-
 // Trigger native draft generation (api/seo-generate.js, or the vite dev
 // middleware). Resolves when the draft is created — synchronously in the inline
 // path, or as a 'generating' row in the Inngest async path (poll for completion).
@@ -154,29 +143,6 @@ async function postJob(payload) {
 export const requestKeywordResearch = (clientId, keyword) => postJob({ action: 'keyword', clientId, keyword })
 export const requestSiteAnalysis = (clientId, domain) => postJob({ action: 'site', clientId, domain })
 export const requestSeoReport = (clientId, domain) => postJob({ action: 'report', clientId, domain })
-
-export async function fetchCaClients() {
-  let res
-  try {
-    res = await fetch('/content-agent-api?resource=clients')
-  } catch {
-    const e = new Error('Could not reach the Content Agent service.')
-    e.code = 'network'
-    throw e
-  }
-  let body = null
-  try {
-    body = await res.json()
-  } catch {
-    /* fall through */
-  }
-  if (!res.ok) {
-    const e = new Error(body?.message || `Request failed (${res.status}).`)
-    e.code = body?.error || 'http_error'
-    throw e
-  }
-  return body
-}
 
 // --- presentation helpers ---------------------------------------------------
 
@@ -232,16 +198,3 @@ const IMPACT_STYLE = {
 }
 export const impactStyle = (impact) =>
   IMPACT_STYLE[String(impact || '').toLowerCase()] || 'bg-surface-container text-on-surface-variant border-outline'
-
-// Suggest the best Content Agent client for a Mammoth client by name/website.
-export function suggestCaClientId(mammothClient, caClients) {
-  if (!mammothClient || !Array.isArray(caClients)) return ''
-  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-  const name = norm(mammothClient.name)
-  const byName = caClients.find((c) => norm(c.name) === name)
-  if (byName) return byName.id
-  const byPartial = caClients.find(
-    (c) => norm(c.name) && (norm(c.name).includes(name) || name.includes(norm(c.name))),
-  )
-  return byPartial?.id || ''
-}

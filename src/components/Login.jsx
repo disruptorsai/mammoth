@@ -24,7 +24,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-lg gold-gradient flex items-center justify-center">
-            <Icon name="rocket_launch" filled className="text-black" />
+            <Icon name="rocket_launch" filled className="text-on-primary" />
           </div>
           <div className="text-center">
             <h1 className="font-headline-lg text-2xl font-bold text-primary leading-none">Mission Control</h1>
@@ -38,7 +38,7 @@ export default function Login() {
           onSubmit={submit}
           className="bg-surface-container border border-outline rounded-xl p-6 space-y-4"
         >
-          <h2 className="font-headline-lg text-lg text-white">Sign in</h2>
+          <h2 className="font-headline-lg text-lg text-on-surface">Sign in</h2>
 
           <label className="block">
             <span className="text-xs font-label-mono uppercase tracking-widest text-on-surface-variant">Email</span>
@@ -72,7 +72,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={busy || !email || !password}
-            className="w-full gold-gradient text-black font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-opacity glow-gold disabled:opacity-50"
+            className="w-full gold-gradient text-on-primary font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-opacity glow-gold disabled:opacity-50"
           >
             {busy ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="login" />}
             {busy ? 'Signing in…' : 'Sign in'}

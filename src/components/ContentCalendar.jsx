@@ -22,7 +22,7 @@ const startOfWeek = (d) => {
 
 // Status filter buckets (and legend) — mirrors how Vista's calendar groups posts.
 const FILTERS = [
-  { key: 'ALL', label: 'All', dot: 'bg-white/60' },
+  { key: 'ALL', label: 'All', dot: 'bg-on-surface/60' },
   { key: 'scheduled', label: 'Scheduled', dot: 'bg-primary' },
   { key: 'published', label: 'Published', dot: 'bg-green-500' },
   { key: 'review', label: 'In review', dot: 'bg-blue-400' },
@@ -257,7 +257,7 @@ export default function ContentCalendar() {
           <div className={`w-6 h-6 rounded ${ns.bg} flex items-center justify-center text-white shrink-0`}>
             {ns.short ? <span className="text-[10px] font-bold">{ns.short}</span> : <Icon name={ns.icon} className="text-[13px]" />}
           </div>
-          <span className="text-xs font-bold text-white truncate flex-1">{profileNames.get(p.profileId) || ns.label}</span>
+          <span className="text-xs font-bold text-on-surface truncate flex-1">{profileNames.get(p.profileId) || ns.label}</span>
           <span className={`text-[10px] font-label-mono uppercase ${ss.text}`}>{ss.label}</span>
         </div>
         <p className="text-xs text-on-surface-variant line-clamp-3">{p.message}</p>
@@ -282,7 +282,7 @@ export default function ContentCalendar() {
       >
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ss.dot}`} />
         <Icon name={ns.icon} className="text-[11px] text-on-surface-variant shrink-0" />
-        <span className="text-[9px] text-white/70 truncate leading-tight">{p.message || ns.label}</span>
+        <span className="text-[9px] text-on-surface/70 truncate leading-tight">{p.message || ns.label}</span>
       </div>
     )
   }
@@ -303,7 +303,7 @@ export default function ContentCalendar() {
         ].join(' ')}
       >
         <div className="flex items-center justify-between px-0.5">
-          <span className={`text-xs ${isToday ? 'font-bold text-primary' : cell.inMonth ? 'text-white/80' : 'text-on-surface-variant'}`}>
+          <span className={`text-xs ${isToday ? 'font-bold text-primary' : cell.inMonth ? 'text-on-surface/80' : 'text-on-surface-variant'}`}>
             {cell.date.getDate()}
           </span>
           {list.length > 0 && (
@@ -322,7 +322,7 @@ export default function ContentCalendar() {
     <div className="col-span-12 lg:col-span-7 bg-surface-container border border-outline rounded-xl p-8">
       <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <h3 className="font-headline-lg text-headline-lg text-white">Content Calendar</h3>
+          <h3 className="font-headline-lg text-headline-lg text-on-surface">Content Calendar</h3>
           {state === 'loading' && <Icon name="progress_activity" className="animate-spin text-primary text-base" />}
         </div>
         <div className="flex items-center gap-3">
@@ -330,7 +330,7 @@ export default function ContentCalendar() {
           <div className="relative" ref={viewMenuRef}>
             <button
               onClick={() => setViewMenuOpen((o) => !o)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-outline text-sm text-white hover:border-primary transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-outline text-sm text-on-surface hover:border-primary transition-colors"
             >
               {VIEWS.find((v) => v.key === view).label}
               <Icon name={viewMenuOpen ? 'expand_less' : 'expand_more'} className="text-base text-on-surface-variant" />
@@ -345,7 +345,7 @@ export default function ContentCalendar() {
                       setViewMenuOpen(false)
                     }}
                     className={`block w-full text-left px-3 py-2 text-sm transition-colors ${
-                      view === v.key ? 'text-primary bg-primary/10 font-bold' : 'text-white hover:bg-surface-variant/20'
+                      view === v.key ? 'text-primary bg-primary/10 font-bold' : 'text-on-surface hover:bg-surface-variant/20'
                     }`}
                   >
                     {v.label}
@@ -375,7 +375,7 @@ export default function ContentCalendar() {
           <button
             onClick={() => setSelectorOpen((o) => !o)}
             disabled={groupsState !== 'ready'}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline text-sm text-white hover:border-primary transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline text-sm text-on-surface hover:border-primary transition-colors disabled:opacity-50"
           >
             <Icon name="groups" className="text-base text-on-surface-variant" />
             <span className="font-medium">{selectorLabel}</span>
@@ -390,7 +390,7 @@ export default function ContentCalendar() {
                 </span>
                 <div className="flex gap-3 text-xs">
                   <button onClick={() => setSelected(new Set(allIds))} className="text-primary hover:underline font-bold">All</button>
-                  <button onClick={() => setSelected(new Set())} className="text-on-surface-variant hover:text-white">Clear</button>
+                  <button onClick={() => setSelected(new Set())} className="text-on-surface-variant hover:text-on-surface">Clear</button>
                 </div>
               </div>
               <div className="overflow-y-auto custom-scrollbar py-1">
@@ -402,7 +402,7 @@ export default function ContentCalendar() {
                       <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-surface-variant/20">
                         <button onClick={() => toggleGroup(g)} className="flex items-center gap-2 flex-1 min-w-0">
                           <CheckBox state={gs} />
-                          <span className="text-sm font-bold text-white truncate">{g.name}</span>
+                          <span className="text-sm font-bold text-on-surface truncate">{g.name}</span>
                           <span className="text-[10px] text-on-surface-variant ml-auto shrink-0">{g.profiles.length}</span>
                         </button>
                         <Icon
@@ -422,7 +422,7 @@ export default function ContentCalendar() {
                             >
                               <CheckBox state={selected.has(p.id) ? 'on' : 'off'} />
                               <Icon name={ns.icon} className="text-[13px] text-on-surface-variant shrink-0" />
-                              <span className="text-xs text-white/80 truncate">{p.name}</span>
+                              <span className="text-xs text-on-surface/80 truncate">{p.name}</span>
                               <span className="text-[9px] text-on-surface-variant ml-auto shrink-0">{ns.label}</span>
                             </button>
                           )
@@ -443,7 +443,7 @@ export default function ContentCalendar() {
                 key={f.key}
                 onClick={() => setStatusFilter(f.key)}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border transition-colors ${
-                  active ? 'border-primary text-primary bg-primary/10' : 'border-outline text-on-surface-variant hover:text-white hover:border-on-surface-variant'
+                  active ? 'border-primary text-primary bg-primary/10' : 'border-outline text-on-surface-variant hover:text-on-surface hover:border-on-surface-variant'
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${f.dot}`} />
@@ -513,7 +513,7 @@ export default function ContentCalendar() {
           >
             <div className="flex items-center justify-between p-5 border-b border-outline">
               <div>
-                <h4 className="font-headline-lg text-white text-lg">
+                <h4 className="font-headline-lg text-on-surface text-lg">
                   {new Date(selectedDay + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
                 </h4>
                 <p className="text-xs text-on-surface-variant">

@@ -122,7 +122,7 @@ export default function Overview() {
           <h2 className="font-headline-xl text-headline-xl-mobile md:text-headline-xl leading-tight">
             <span className="gold-gradient-text">Your AI growth engine —</span>
             <br />
-            <span className="text-white opacity-90">content, ads, SEO, CRM.</span>
+            <span className="text-on-surface opacity-90">content, ads, SEO, CRM.</span>
           </h2>
           <div className="flex flex-wrap items-center gap-4 mt-4">
             <div className="px-4 py-1.5 bg-surface-container border border-outline rounded-xl flex items-center gap-2">
@@ -292,7 +292,7 @@ export default function Overview() {
                   <div className="pb-6 min-w-0">
                     <p className="text-sm font-body-md truncate">
                       <span className="font-bold text-primary">{a.sub}</span>{' '}
-                      <span className="text-white opacity-80">{a.label}</span>
+                      <span className="text-on-surface opacity-80">{a.label}</span>
                     </p>
                     <p className="text-[10px] mono-data text-on-surface-variant mt-1 uppercase">
                       {COLUMN_TITLES[a.detail] || a.detail} — {relTime(a.at)}
@@ -315,7 +315,7 @@ export default function Overview() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => navigate('/task-management')}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg border border-primary text-primary text-xs font-bold hover:bg-primary hover:text-black transition-colors"
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg border border-primary text-primary text-xs font-bold hover:bg-primary hover:text-on-primary transition-colors"
                 >
                   <Icon name="view_kanban" className="text-sm" /> View Board
                 </button>

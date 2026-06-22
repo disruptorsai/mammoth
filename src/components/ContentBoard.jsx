@@ -237,7 +237,7 @@ function PostModal({ post, onClose, onSave, onDelete }) {
                   onClick={() => setForm((f) => ({ ...f, column_key: c.key }))}
                   className={`py-2 rounded-lg text-xs font-medium border transition-colors ${
                     active
-                      ? 'gold-gradient text-black border-transparent font-bold'
+                      ? 'gold-gradient text-on-primary border-transparent font-bold'
                       : 'bg-surface-container-low border-outline text-on-surface-variant hover:border-primary'
                   }`}
                 >
@@ -310,7 +310,7 @@ function PostModal({ post, onClose, onSave, onDelete }) {
             </button>
             <button
               type="submit"
-              className="gold-gradient text-black font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
+              className="gold-gradient text-on-primary font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
             >
               {isNew ? 'Create' : 'Save'}
             </button>
@@ -479,7 +479,7 @@ export default function ContentBoard() {
     <div className="col-span-12 bg-surface-container border border-outline rounded-xl p-6 md:p-8">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <h3 className="font-headline-lg text-headline-lg text-white">Content Board</h3>
+          <h3 className="font-headline-lg text-headline-lg text-on-surface">Content Board</h3>
           {loading && <Icon name="progress_activity" className="animate-spin text-primary text-base" />}
           <span className="text-sm text-on-surface-variant">
             {activeClient.name}
@@ -487,7 +487,7 @@ export default function ContentBoard() {
         </div>
         <button
           onClick={() => openCreate('idea')}
-          className="gold-gradient text-black font-bold px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity text-sm"
+          className="gold-gradient text-on-primary font-bold px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity text-sm"
         >
           <Icon name="add" /> New Post
         </button>

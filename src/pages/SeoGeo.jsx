@@ -314,8 +314,8 @@ function Sparkline({ points }) {
   const step = points.length > 1 ? w / (points.length - 1) : w
   const poly = points.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h).toFixed(1)}`).join(' ')
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-14 w-full">
-      <polyline points={poly} fill="none" stroke="#eec065" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-14 w-full text-primary">
+      <polyline points={poly} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }
@@ -716,7 +716,7 @@ function DraftsSection({ clientId }) {
 
 function leverageTier(score) {
   if (score == null) return { label: 'n/a', className: 'border-outline bg-transparent text-on-surface-variant/70' }
-  if (score >= 60) return { label: 'high', className: 'border-primary bg-primary text-black' }
+  if (score >= 60) return { label: 'high', className: 'border-primary bg-primary text-on-primary' }
   if (score >= 45) return { label: 'med', className: 'border-primary/40 bg-primary/10 text-primary' }
   return { label: 'low', className: 'border-outline bg-surface-container-low text-on-surface-variant' }
 }
@@ -1986,7 +1986,7 @@ function SettingsSection({ clientId }) {
             <button
               onClick={deleteClient}
               disabled={deleting || confirmName.trim() !== (activeClient?.name || '')}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-error/90 px-5 py-2.5 text-sm font-bold text-black transition-colors hover:bg-error disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-error/90 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-error disabled:opacity-50"
             >
               <Icon name="delete_forever" className="text-base" /> {deleting ? 'Deleting…' : 'Delete client'}
             </button>

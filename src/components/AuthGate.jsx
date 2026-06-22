@@ -19,7 +19,7 @@ export default function AuthGate({ children }) {
     return (
       <Centered>
         <Icon name="warning" className="text-primary text-4xl" />
-        <h1 className="font-headline-lg text-xl text-white">Supabase not configured</h1>
+        <h1 className="font-headline-lg text-xl text-on-surface">Supabase not configured</h1>
         <p className="text-on-surface-variant text-sm">
           Add <code className="font-label-mono text-primary">VITE_SUPABASE_URL</code> and{' '}
           <code className="font-label-mono text-primary">VITE_SUPABASE_ANON_KEY</code> to{' '}
@@ -45,7 +45,7 @@ export default function AuthGate({ children }) {
     return (
       <Centered>
         <Icon name="hourglass_empty" className="text-primary text-4xl" />
-        <h1 className="font-headline-lg text-xl text-white">Account pending setup</h1>
+        <h1 className="font-headline-lg text-xl text-on-surface">Account pending setup</h1>
         <p className="text-on-surface-variant text-sm">
           Your login works, but it isn’t linked to a workspace yet. Ask your Disruptors strategist
           to finish provisioning your account.

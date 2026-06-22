@@ -236,7 +236,7 @@ export default function Subscription() {
               <button
                 type="submit"
                 disabled={!profileDirty || savingProfile}
-                className="mt-6 w-full py-3 border border-primary text-primary font-bold rounded-xl hover:bg-primary hover:text-black transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
+                className="mt-6 w-full py-3 border border-primary text-primary font-bold rounded-xl hover:bg-primary hover:text-on-primary transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
               >
                 {savingProfile ? 'Saving…' : 'Save Profile'}
               </button>
@@ -267,7 +267,7 @@ export default function Subscription() {
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="font-headline-lg text-xl font-bold">{plan.name}</h4>
                     {active && (
-                      <span className="text-[10px] bg-primary text-black px-2 py-0.5 rounded-full font-bold uppercase">
+                      <span className="text-[10px] bg-primary text-on-primary px-2 py-0.5 rounded-full font-bold uppercase">
                         Current
                       </span>
                     )}
@@ -290,7 +290,7 @@ export default function Subscription() {
                     className={`w-full py-3 rounded-xl font-bold transition-all ${
                       active
                         ? 'bg-surface-variant text-on-surface-variant cursor-default'
-                        : 'gold-gradient text-black hover:opacity-90'
+                        : 'gold-gradient text-on-primary hover:opacity-90'
                     }`}
                   >
                     {active ? 'Active' : `Switch to ${plan.name}`}

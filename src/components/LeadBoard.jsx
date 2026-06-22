@@ -225,7 +225,7 @@ function LeadModal({ lead, onClose, onSave, onDelete }) {
                   onClick={() => setForm((f) => ({ ...f, stage_key: s.key }))}
                   className={`py-2 rounded-lg text-[11px] font-medium border transition-colors ${
                     active
-                      ? 'gold-gradient text-black border-transparent font-bold'
+                      ? 'gold-gradient text-on-primary border-transparent font-bold'
                       : 'bg-surface-container-low border-outline text-on-surface-variant hover:border-primary'
                   }`}
                 >
@@ -258,7 +258,7 @@ function LeadModal({ lead, onClose, onSave, onDelete }) {
             </button>
             <button
               type="submit"
-              className="gold-gradient text-black font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
+              className="gold-gradient text-on-primary font-bold px-5 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
             >
               {isNew ? 'Create' : 'Save'}
             </button>

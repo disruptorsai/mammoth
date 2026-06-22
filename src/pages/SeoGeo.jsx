@@ -270,74 +270,217 @@ function OnboardingCard({ data }) {
   )
 }
 
+// Minimal sparkline (daily spend over 30d), matching CA's gold polyline.
+function Sparkline({ points }) {
+  const max = Math.max(1, ...points)
+  const w = 300
+  const h = 56
+  const step = points.length > 1 ? w / (points.length - 1) : w
+  const poly = points.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h).toFixed(1)}`).join(' ')
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-14 w-full">
+      <polyline points={poly} fill="none" stroke="#eec065" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    </svg>
+  )
+}
+
+const DASH_QUICKNAV = [
+  { to: 'agent', icon: 'forum', title: 'AI Agent', blurb: 'Chat with content personas, on brand.' },
+  { to: 'drafts', icon: 'description', title: 'Drafts', blurb: 'Generate and manage content.' },
+  { to: 'keywords', icon: 'travel_explore', title: 'Keywords', blurb: 'Find opportunities worth writing about.' },
+  { to: 'analysis', icon: 'query_stats', title: 'Site Analysis', blurb: 'Rankings and a recommended strategy.' },
+  { to: 'reports', icon: 'assessment', title: 'SEO / GEO', blurb: 'Run PageSpeed + AI audits.' },
+  { to: 'knowledge', icon: 'menu_book', title: 'Knowledge Base', blurb: 'Brand voice & facts for the AI.' },
+]
+
+const KB_COMPLETENESS = [
+  { key: 'voice_tone', label: 'Brand voice', src: 'voice' },
+  { key: 'brand_guidelines', label: 'Guidelines', src: 'kb' },
+  { key: 'case_studies', label: 'Case studies', src: 'kb' },
+  { key: 'unique_facts', label: 'Unique facts', src: 'kb' },
+  { key: 'faq', label: 'FAQ', src: 'kb' },
+  { key: 'brand_voice_samples', label: 'Voice samples', src: 'kb' },
+]
+
 function DashboardSection({ clientId }) {
   const { data, loading, error } = useResource(() => fetchDashboard(clientId), [clientId])
-  const spend = useMemo(() => (data?.usage ?? []).reduce((s, u) => s + (u.cost_cents || 0), 0), [data])
-  const pipeline = useMemo(() => {
+  const go = useGo()
+
+  const stats = useMemo(() => {
+    const usage = data?.usage ?? []
+    const spend = usage.reduce((s, u) => s + (u.cost_cents || 0), 0)
+    const tokens = usage.reduce((s, u) => s + (u.tokens || 0), 0)
+    const activeJobs = (data?.jobs ?? []).filter((j) => j.status === 'running' || j.status === 'queued').length
+    const byEvent = {}
+    for (const u of usage) byEvent[u.event] = (byEvent[u.event] || 0) + (u.cost_cents || 0)
+    const costByEvent = Object.entries(byEvent).sort((a, b) => b[1] - a[1])
+    // 30 daily spend buckets for the sparkline.
+    const days = 30
+    const buckets = new Array(days).fill(0)
+    const now = Date.now()
+    for (const u of usage) {
+      const idx = days - 1 - Math.floor((now - new Date(u.ts).getTime()) / 86400000)
+      if (idx >= 0 && idx < days) buckets[idx] += u.cost_cents || 0
+    }
     const counts = {}
     for (const d of data?.drafts ?? []) counts[d.status] = (counts[d.status] || 0) + 1
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
-    return { counts, total }
+    return { spend, tokens, activeJobs, costByEvent, buckets, peak: Math.max(0, ...buckets), pipeline: { counts, total } }
+  }, [data])
+
+  const kbDone = useMemo(() => {
+    if (!data) return { done: 0, total: KB_COMPLETENESS.length, items: [] }
+    const items = KB_COMPLETENESS.map((f) => ({
+      label: f.label,
+      done: Boolean((f.src === 'voice' ? data.brandVoice : data.knowledgeBase)?.[f.key]),
+    }))
+    return { done: items.filter((i) => i.done).length, total: items.length, items }
   }, [data])
 
   return (
     <Boundary loading={loading} error={error}>
       {data && (
         <div className="space-y-4">
-          <OnboardingCard data={data} />
-
-          {/* Scorecards */}
-          <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Scorecard label="Drafts · 30d" value={data.drafts.length} />
-            <Scorecard label="Spend · 30d" value={dollars(spend)} sub={`${data.usage.length} events`} />
-            <Scorecard label="Top keywords" value={data.keywords.length} />
-            <Scorecard label="SEO reports" value={data.seoReports.length} />
+          {/* Hero */}
+          <section className="rounded-xl border border-outline bg-surface-container-high px-6 py-8 md:px-10">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">AI content workspace</p>
+            <h3 className="mt-2 font-display text-3xl md:text-4xl gold-shine">{data.client?.name || 'Client'} content engine</h3>
+            <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
+              Plan, generate and ship on-brand SEO/GEO content — research keywords, draft with AI, run audits, and track what ranks, all in one place.
+            </p>
           </section>
 
-          {/* Top keywords + latest analysis */}
+          <OnboardingCard data={data} />
+
+          {/* Quick navigation */}
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {DASH_QUICKNAV.map((q) => (
+              <button key={q.to} onClick={() => go(q.to)} className="glass-card flex flex-col gap-2 p-5 text-left transition hover:-translate-y-0.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-display text-lg">{q.title}</span>
+                  <Icon name={q.icon} className="text-primary text-xl" />
+                </div>
+                <span className="flex-1 text-sm text-on-surface-variant">{q.blurb}</span>
+                <span className="inline-flex items-center gap-1 font-mono text-xs text-primary">Open <Icon name="arrow_forward" className="text-sm" /></span>
+              </button>
+            ))}
+          </section>
+
+          {/* KPI scorecards */}
+          <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Scorecard label="Tokens · 30d" value={stats.tokens.toLocaleString()} />
+            <Scorecard label="Drafts · 30d" value={data.drafts.length} />
+            <Scorecard label="Spend · 30d" value={dollars(stats.spend)} sub={`${data.usage.length} events`} />
+            <Scorecard label="Active jobs" value={stats.activeJobs} />
+          </section>
+
+          {/* Spend trend + cost by event */}
           <section className="grid gap-4 md:grid-cols-2">
+            <div className="glass-card p-6">
+              <p className="section-label mb-4">Spend · last 30 days</p>
+              {stats.spend === 0 ? (
+                <p className="text-sm text-on-surface-variant">No spend yet.</p>
+              ) : (
+                <>
+                  <Sparkline points={stats.buckets} />
+                  <div className="mt-2 flex justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">
+                    <span>30d ago</span>
+                    <span>peak {dollars(stats.peak)}</span>
+                    <span>today</span>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="glass-card p-6">
+              <p className="section-label mb-4">Cost by event</p>
+              {stats.costByEvent.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">No usage yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {stats.costByEvent.map(([event, cents]) => (
+                    <li key={event} className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-on-surface-variant">{prettyStatus(event)}</span>
+                      <span className="font-display text-base tabular-nums">{dollars(cents)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          {/* Knowledge base completeness */}
+          <section className="glass-card p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="section-label">Knowledge base completeness</p>
+              <div className="h-1.5 w-40 overflow-hidden rounded-full bg-surface-container-low">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(kbDone.done / kbDone.total) * 100}%` }} />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {kbDone.items.map((i) => (
+                <span
+                  key={i.label}
+                  className={`rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                    i.done ? 'border-primary bg-primary/15 text-primary' : 'border-outline bg-surface-container-low text-on-surface-variant'
+                  }`}
+                >
+                  {i.done ? '✓ ' : ''}{i.label}
+                </span>
+              ))}
+              {kbDone.done < kbDone.total && (
+                <button onClick={() => go('knowledge')} className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary">Complete it →</button>
+              )}
+            </div>
+          </section>
+
+          {/* Strategist recommendations */}
+          {data.siteAnalysis && (
+            <section className="glass-card p-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="section-label">Strategist recommendations</p>
+                <button onClick={() => go('analysis')} className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary">See all →</button>
+              </div>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">
+                {data.siteAnalysis.domain} · {(data.siteAnalysis.generated_at || '').slice(0, 10)}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {flattenRecommendations(data.siteAnalysis.recommendations).items.slice(0, 5).map((r, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 rounded-lg border border-outline/60 bg-surface-container-low px-4 py-2.5 text-sm">
+                    <span className="truncate text-on-surface/90">{r.title}</span>
+                    <button onClick={() => go('drafts')} className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-on-surface-variant hover:text-primary">Generate →</button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Latest report + top keywords */}
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="glass-card p-6">
+              <p className="section-label mb-4">Latest SEO / GEO report</p>
+              {data.seoReports.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">No reports yet.</p>
+              ) : (
+                <>
+                  <p className="font-display text-2xl gold-shine">{data.seoReports[0].domain}</p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">{(data.seoReports[0].generated_at || '').slice(0, 10)}</p>
+                  <button onClick={() => go('reports')} className="mt-3 inline-flex items-center gap-1 font-mono text-xs text-primary">View reports <Icon name="arrow_forward" className="text-sm" /></button>
+                </>
+              )}
+            </div>
             <div className="glass-card p-6">
               <p className="section-label mb-4">Top keyword opportunities</p>
               {data.keywords.length === 0 ? (
                 <p className="text-sm text-on-surface-variant">No keyword research yet.</p>
               ) : (
                 <ul className="space-y-2">
-                  {data.keywords.map((k) => (
-                    <li
-                      key={k.keyword}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-outline/60 bg-surface-container-low px-4 py-2.5 text-sm"
-                    >
+                  {data.keywords.slice(0, 6).map((k) => (
+                    <li key={k.keyword} className="flex items-center justify-between gap-3 text-sm">
                       <span className="truncate text-on-surface/90">{k.keyword}</span>
-                      <span className="font-display text-base tabular-nums text-primary">
-                        {k.leverage_score != null ? Number(k.leverage_score).toFixed(1) : '—'}
-                      </span>
+                      <span className="font-display text-base tabular-nums text-primary">{k.leverage_score != null ? Number(k.leverage_score).toFixed(1) : '—'}</span>
                     </li>
                   ))}
                 </ul>
-              )}
-            </div>
-
-            <div className="glass-card p-6">
-              <p className="section-label mb-4">Latest site analysis</p>
-              {data.siteAnalysis ? (
-                <>
-                  <p className="font-display text-2xl gold-shine">{data.siteAnalysis.domain}</p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">
-                    {(data.siteAnalysis.generated_at || '').slice(0, 10)}
-                  </p>
-                  <ul className="mt-3 space-y-1.5">
-                    {flattenRecommendations(data.siteAnalysis.recommendations)
-                      .items.slice(0, 4)
-                      .map((r, i) => (
-                        <li key={i} className="flex gap-2 text-sm text-on-surface-variant">
-                          <Icon name="chevron_right" className="text-primary text-base shrink-0" />
-                          <span className="truncate">{r.title}</span>
-                        </li>
-                      ))}
-                  </ul>
-                </>
-              ) : (
-                <p className="text-sm text-on-surface-variant">No analysis run yet.</p>
               )}
             </div>
           </section>
@@ -345,22 +488,17 @@ function DashboardSection({ clientId }) {
           {/* Drafts pipeline */}
           <section className="glass-card p-6">
             <p className="section-label mb-4">Drafts pipeline · 30d</p>
-            {pipeline.total === 0 ? (
+            {stats.pipeline.total === 0 ? (
               <p className="text-sm text-on-surface-variant">No drafts in the last 30 days.</p>
             ) : (
               <>
                 <div className="flex h-3 w-full overflow-hidden rounded-full bg-surface-container-low">
-                  {Object.entries(pipeline.counts).map(([status, n]) => (
-                    <div
-                      key={status}
-                      className={PIPELINE_COLORS[status] || 'bg-outline'}
-                      style={{ width: `${(n / pipeline.total) * 100}%` }}
-                      title={`${prettyStatus(status)}: ${n}`}
-                    />
+                  {Object.entries(stats.pipeline.counts).map(([status, n]) => (
+                    <div key={status} className={PIPELINE_COLORS[status] || 'bg-outline'} style={{ width: `${(n / stats.pipeline.total) * 100}%` }} title={`${prettyStatus(status)}: ${n}`} />
                   ))}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant">
-                  {Object.entries(pipeline.counts).map(([status, n]) => (
+                  {Object.entries(stats.pipeline.counts).map(([status, n]) => (
                     <span key={status} className="inline-flex items-center gap-1.5">
                       <span className={`inline-block h-2 w-2 rounded-full ${PIPELINE_COLORS[status] || 'bg-outline'}`} />
                       {prettyStatus(status)} {n}
@@ -382,13 +520,9 @@ function DashboardSection({ clientId }) {
                   <li key={j.id} className="flex items-center justify-between gap-3 py-2.5">
                     <div>
                       <p className="font-display text-sm">{prettyStatus(j.kind)}</p>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-on-surface-variant">
-                        {(j.created_at || '').slice(0, 10)}
-                      </p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-on-surface-variant">{(j.created_at || '').slice(0, 10)}</p>
                     </div>
-                    <span className={`rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase ${draftStatusStyle(j.status)}`}>
-                      {prettyStatus(j.status)}
-                    </span>
+                    <span className={`rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase ${draftStatusStyle(j.status)}`}>{prettyStatus(j.status)}</span>
                   </li>
                 ))}
               </ul>

@@ -20,7 +20,7 @@ export async function fetchDashboard(clientId) {
   const since = since30d()
   const [usage, drafts, seoReports, jobs, keywords, client, siteAnalysis, knowledgeBase, brandVoice] =
     await Promise.all([
-      supabase.from('content_usage_ledger').select('event,cost_cents,ts').eq('client_id', clientId).gte('ts', since),
+      supabase.from('content_usage_ledger').select('event,cost_cents,tokens,ts').eq('client_id', clientId).gte('ts', since),
       supabase.from('content_drafts').select('status,cost_cents,updated_at').eq('client_id', clientId).gte('updated_at', since),
       supabase.from('seo_reports').select('id,domain,generated_at,report_json').eq('client_id', clientId).order('generated_at', { ascending: false }).limit(10),
       supabase.from('content_jobs').select('id,kind,status,created_at').eq('client_id', clientId).gte('created_at', since).order('created_at', { ascending: false }).limit(20),

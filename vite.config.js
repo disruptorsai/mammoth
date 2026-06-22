@@ -1,6 +1,5 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
-import { handleContentAgent } from './api/_contentAgentCore.js'
 import { generateDraft } from './api/_seoGenerateCore.js'
 import { researchKeyword, runSiteAnalysis, runSeoReport } from './api/_seoJobsCore.js'
 
@@ -12,10 +11,6 @@ export default defineConfig(({ mode }) => {
   const ANTHROPIC_KEY = env.ANTHROPIC_API_KEY || ''
   const GHL_KEY = env.GHL_API_KEY || ''
   const GHL_V1 = env.GHL_AUTH_MODE === 'v1'
-  const CA_ENV = {
-    CONTENT_AGENT_SUPABASE_URL: env.CONTENT_AGENT_SUPABASE_URL || '',
-    CONTENT_AGENT_SERVICE_ROLE_KEY: env.CONTENT_AGENT_SERVICE_ROLE_KEY || '',
-  }
   // Server-side env the SEO/GEO generation core needs (never reaches the browser).
   const GEN_ENV = {
     VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || '',
@@ -24,33 +19,6 @@ export default defineConfig(({ mode }) => {
     DATAFORSEO_DEFAULT_LOGIN: env.DATAFORSEO_DEFAULT_LOGIN || '',
     DATAFORSEO_DEFAULT_PASSWORD: env.DATAFORSEO_DEFAULT_PASSWORD || '',
     GOOGLE_PSI_KEY: env.GOOGLE_PSI_KEY || '',
-  }
-
-  // Dev equivalent of api/content-agent.js — runs the SAME shared core so the
-  // service-role key stays server-side and behaviour matches prod.
-  const contentAgentDevApi = {
-    name: 'content-agent-dev-api',
-    configureServer(server) {
-      server.middlewares.use('/content-agent-api', async (req, res) => {
-        try {
-          const u = new URL(req.url, 'http://localhost')
-          const params = Object.fromEntries(u.searchParams.entries())
-          const { status, body } = await handleContentAgent({
-            resource: params.resource || '',
-            clientId: params.clientId || '',
-            params,
-            env: CA_ENV,
-          })
-          res.statusCode = status
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify(body))
-        } catch (e) {
-          res.statusCode = 500
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'middleware_failed', message: String(e?.message || e) }))
-        }
-      })
-    },
   }
 
   // Dev equivalent of api/seo-generate.js — runs the generation core inline so
@@ -119,7 +87,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react(), contentAgentDevApi, seoGenerateDevApi, seoJobDevApi],
+    plugins: [react(), seoGenerateDevApi, seoJobDevApi],
     server: {
       port: 5173,
       open: true,

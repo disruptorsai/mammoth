@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     if (action === 'keyword') {
       if (useInngest) {
         const { inngest } = await import('./_inngestApp.js')
-        await inngest.send({ name: 'keyword/research.requested', data: { clientId, keyword: body.keyword } })
+        await inngest.send({ name: 'mc/keyword.research.requested', data: { clientId, keyword: body.keyword } })
         res.status(202).json({ async: true })
         return
       }
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
         const db = makeServiceClient(process.env)
         const { data } = await db.from('site_analyses').insert({ client_id: clientId, domain: body.domain, status: 'queued' }).select('id').single()
         const { inngest } = await import('./_inngestApp.js')
-        await inngest.send({ name: 'site/analysis.requested', data: { clientId, domain: body.domain, analysisId: data?.id } })
+        await inngest.send({ name: 'mc/site.analysis.requested', data: { clientId, domain: body.domain, analysisId: data?.id } })
         res.status(202).json({ analysisId: data?.id, async: true })
         return
       }
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     if (action === 'report') {
       if (useInngest) {
         const { inngest } = await import('./_inngestApp.js')
-        await inngest.send({ name: 'seo/report.requested', data: { clientId, domain: body.domain } })
+        await inngest.send({ name: 'mc/seo.report.requested', data: { clientId, domain: body.domain } })
         res.status(202).json({ async: true })
         return
       }

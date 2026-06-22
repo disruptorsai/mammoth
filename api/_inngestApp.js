@@ -11,11 +11,12 @@ import { researchKeyword, runSiteAnalysis, runSeoReport } from './_seoJobsCore.j
 
 export const inngest = new Inngest({ id: 'mission-control' })
 
-// Draft generation: triggered by content/generate.requested. Concurrency capped
-// per client so one busy client can't starve the others.
+// Draft generation. Events use an `mc/` namespace so they can never collide with
+// the separate Content Agent app's events (which use content/keyword/site names)
+// even if both apps ever share one Inngest environment.
 export const generateContent = inngest.createFunction(
   { id: 'generate-content', name: 'Generate content draft', concurrency: { key: 'event.data.clientId', limit: 5 } },
-  { event: 'content/generate.requested' },
+  { event: 'mc/content.generate.requested' },
   async ({ event, step }) => {
     const { clientId, contentType, topic, draftId } = event.data
     const result = await step.run('generate-draft', () =>
@@ -41,7 +42,7 @@ export const generateContentFailed = inngest.createFunction(
 // Keyword research (DataForSEO).
 export const keywordResearch = inngest.createFunction(
   { id: 'keyword-research', concurrency: { key: 'event.data.clientId', limit: 5 } },
-  { event: 'keyword/research.requested' },
+  { event: 'mc/keyword.research.requested' },
   async ({ event, step }) =>
     step.run('research', () => researchKeyword({ env: process.env, clientId: event.data.clientId, keyword: event.data.keyword })),
 )
@@ -49,7 +50,7 @@ export const keywordResearch = inngest.createFunction(
 // Site analysis (DataForSEO rankings + Claude strategy).
 export const siteAnalysis = inngest.createFunction(
   { id: 'site-analysis', concurrency: { key: 'event.data.clientId', limit: 2 } },
-  { event: 'site/analysis.requested' },
+  { event: 'mc/site.analysis.requested' },
   async ({ event, step }) =>
     step.run('analyze', () =>
       runSiteAnalysis({ env: process.env, clientId: event.data.clientId, domain: event.data.domain, analysisId: event.data.analysisId }),
@@ -59,7 +60,7 @@ export const siteAnalysis = inngest.createFunction(
 // SEO report (PageSpeed Insights + Claude synthesis).
 export const seoReport = inngest.createFunction(
   { id: 'seo-report', concurrency: { key: 'event.data.clientId', limit: 2 } },
-  { event: 'seo/report.requested' },
+  { event: 'mc/seo.report.requested' },
   async ({ event, step }) =>
     step.run('report', () => runSeoReport({ env: process.env, clientId: event.data.clientId, domain: event.data.domain })),
 )

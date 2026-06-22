@@ -89,6 +89,18 @@ export async function fetchSeoReports(clientId) {
   return { website: reports[0]?.domain ?? '', reports }
 }
 
+// Full single report (with report_json) for the detail view.
+export async function fetchSeoReport(id) {
+  if (!isSupabaseConfigured) return null
+  const { data, error } = await supabase
+    .from('seo_reports')
+    .select('id,domain,generated_at,report_json,usage_billed')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function fetchSiteAnalysis(clientId) {
   if (!isSupabaseConfigured) return { website: '', analysis: null }
   const analysis = await one(

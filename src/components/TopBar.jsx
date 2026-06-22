@@ -2,6 +2,7 @@ import Icon from './Icon'
 import GlobalSearch from './GlobalSearch'
 import NotificationsMenu from './NotificationsMenu'
 import SettingsMenu from './SettingsMenu'
+import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../context/AuthContext'
 
 // Shared sticky top bar. `title` differs per page (matches each Stitch export header).
@@ -25,6 +26,7 @@ export default function TopBar({ title, searchPlaceholder = 'Global Search…', 
       <div className="flex items-center gap-4 sm:gap-6">
         <GlobalSearch placeholder={searchPlaceholder} />
         <div className="flex items-center gap-3 sm:gap-4">
+          <ThemeToggle />
           <NotificationsMenu />
           <SettingsMenu />
           <div

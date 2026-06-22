@@ -32,6 +32,14 @@ import {
   saveConversation,
   deleteConversation,
   chatComplete,
+  requestImage,
+  listImages,
+  saveImage,
+  deleteImage,
+  fetchClientSettings,
+  saveClientSettings,
+  listApiKeys,
+  saveApiKey,
   draftStatusStyle,
   prettyStatus,
   dollars,
@@ -49,11 +57,13 @@ const SECTIONS = [
   { key: 'drafts', label: 'Drafts', icon: 'description' },
   { key: 'keywords', label: 'Keywords', icon: 'travel_explore' },
   { key: 'prompts', label: 'Prompt Studio', icon: 'tune' },
+  { key: 'images', label: 'AI Images', icon: 'image' },
   { key: 'reports', label: 'SEO / GEO', icon: 'assessment' },
   { key: 'analysis', label: 'Site Analysis', icon: 'query_stats' },
   { key: 'knowledge', label: 'Knowledge Base', icon: 'menu_book' },
   { key: 'blog', label: 'Blog Studio', icon: 'upload_file' },
   { key: 'watchlist', label: 'Watchlist', icon: 'visibility' },
+  { key: 'settings', label: 'Settings', icon: 'settings' },
 ]
 
 const DRAFT_FILTERS = ['all', 'pending_approval', 'needs_revision', 'approved', 'published', 'failed']
@@ -1330,6 +1340,204 @@ function AiAgentSection({ clientId }) {
   )
 }
 
+// --- AI Images --------------------------------------------------------------
+
+function ImagesSection({ clientId }) {
+  const { data, loading, error, reload } = useResource(() => listImages(clientId), [clientId])
+  const [prompt, setPrompt] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+
+  async function generate(e) {
+    e.preventDefault()
+    if (!prompt.trim() || busy) return
+    setBusy(true)
+    setErr(null)
+    try {
+      const { dataUrl } = await requestImage(clientId, prompt.trim())
+      await saveImage(clientId, prompt.trim(), dataUrl)
+      setPrompt('')
+      await reload()
+    } catch (e2) {
+      setErr(e2.message ?? String(e2))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={generate} className="glass-card p-6">
+        <div className="mb-4 flex items-baseline gap-2">
+          <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Generate</span>
+          <p className="section-label">Create a brand image</p>
+        </div>
+        <div className="flex flex-wrap items-start gap-3">
+          <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe the image — e.g. a modern HVAC van, gold-and-black brand style" className="input-field flex-1 min-w-[260px]" />
+          <button type="submit" disabled={busy || !prompt.trim()} className="btn-primary">
+            <Icon name={busy ? 'progress_activity' : 'auto_awesome'} className={`text-base ${busy ? 'animate-spin' : ''}`} />
+            {busy ? 'Generating…' : 'Generate image'}
+          </button>
+        </div>
+        {err && <p className="mt-3 text-sm text-error">{err}</p>}
+        <p className="mt-2 text-xs text-on-surface-variant">Requires OPENAI_API_KEY on the server.</p>
+      </form>
+
+      <Boundary loading={loading} error={error} empty={data && data.length === 0} emptyTitle="No images yet" emptyHint="Generate one above.">
+        {data && data.length > 0 && (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {data.map((img) => (
+              <div key={img.id} className="glass-card overflow-hidden">
+                <img src={img.storage_path} alt={img.prompt} className="aspect-square w-full object-cover" loading="lazy" />
+                <div className="p-3">
+                  <p className="line-clamp-2 text-xs text-on-surface-variant">{img.prompt}</p>
+                  <button onClick={() => deleteImage(img.id).then(reload)} className="mt-2 text-on-surface-variant hover:text-error" aria-label="Delete image">
+                    <Icon name="delete" className="text-base" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Boundary>
+    </div>
+  )
+}
+
+// --- Settings ---------------------------------------------------------------
+
+const BYOK_PROVIDERS = ['claude', 'openai', 'dataforseo', 'serpapi', 'apify', 'kie', 'wordpress']
+
+function SettingsSection({ clientId }) {
+  const { data, loading, error, reload } = useResource(
+    () => Promise.all([fetchClientSettings(clientId), fetchBrandVoice(clientId), listApiKeys(clientId)]),
+    [clientId],
+  )
+  const [cfg, setCfg] = useState({})
+  const [voice, setVoice] = useState({})
+  const [competitors, setCompetitors] = useState(['', '', ''])
+  const [keys, setKeys] = useState({})
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [err, setErr] = useState(null)
+
+  useEffect(() => {
+    if (data) {
+      setCfg(data[0] || {})
+      setVoice(data[1] || {})
+      const comp = data[0]?.competitor_domains || []
+      setCompetitors([comp[0] || '', comp[1] || '', comp[2] || ''])
+    }
+  }, [data])
+
+  const savedProviders = new Set((data?.[2] || []).map((k) => k.provider))
+
+  async function saveConfig(e) {
+    e.preventDefault()
+    setBusy(true)
+    setSaved(false)
+    setErr(null)
+    try {
+      await saveClientSettings(clientId, {
+        wordpress_url: cfg.wordpress_url || '',
+        auto_publish_on_approval: !!cfg.auto_publish_on_approval,
+        competitor_domains: competitors.map((c) => c.trim()).filter(Boolean),
+        plan: cfg.plan || null,
+        token_allowance: Number(cfg.token_allowance) || 0,
+      })
+      await saveBrandVoice(clientId, {
+        voice_tone: voice.voice_tone || '',
+        target_audience: voice.target_audience || '',
+        sample_copy: voice.sample_copy || '',
+      })
+      setSaved(true)
+      await reload()
+    } catch (e2) {
+      setErr(e2.message ?? String(e2))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveKey(provider) {
+    const secret = (keys[provider] || '').trim()
+    if (!secret) return
+    await saveApiKey(clientId, provider, secret)
+    setKeys({ ...keys, [provider]: '' })
+    reload()
+  }
+
+  return (
+    <Boundary loading={loading} error={error}>
+      <div className="space-y-4">
+        <form onSubmit={saveConfig} className="space-y-4">
+          <div className="glass-card p-6 space-y-3">
+            <p className="section-label">Brand voice</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <input value={voice.voice_tone || ''} onChange={(e) => setVoice({ ...voice, voice_tone: e.target.value })} placeholder="Voice & tone" className="input-field" />
+              <input value={voice.target_audience || ''} onChange={(e) => setVoice({ ...voice, target_audience: e.target.value })} placeholder="Target audience" className="input-field" />
+            </div>
+            <textarea value={voice.sample_copy || ''} onChange={(e) => setVoice({ ...voice, sample_copy: e.target.value })} rows={2} placeholder="Sample copy…" className="input-field" />
+          </div>
+
+          <div className="glass-card p-6 space-y-3">
+            <p className="section-label">WordPress publishing</p>
+            <input value={cfg.wordpress_url || ''} onChange={(e) => setCfg({ ...cfg, wordpress_url: e.target.value })} placeholder="https://yoursite.com" className="input-field" />
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input type="checkbox" checked={!!cfg.auto_publish_on_approval} onChange={(e) => setCfg({ ...cfg, auto_publish_on_approval: e.target.checked })} />
+              Auto-publish drafts to WordPress on approval
+            </label>
+          </div>
+
+          <div className="glass-card p-6 space-y-3">
+            <p className="section-label">Competitor domains</p>
+            {competitors.map((c, i) => (
+              <input key={i} value={c} onChange={(e) => { const n = [...competitors]; n[i] = e.target.value; setCompetitors(n) }} placeholder={`Competitor ${i + 1}`} className="input-field" />
+            ))}
+          </div>
+
+          <div className="glass-card p-6 space-y-3">
+            <p className="section-label">Plan &amp; budget</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <select value={cfg.plan || ''} onChange={(e) => setCfg({ ...cfg, plan: e.target.value })} className="input-field">
+                <option value="">No plan</option>
+                {['growth', 'scale', 'mammoth'].map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <input type="number" value={cfg.token_allowance ?? 0} onChange={(e) => setCfg({ ...cfg, token_allowance: e.target.value })} placeholder="Monthly token allowance (0 = plan default)" className="input-field" />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={busy} className="btn-primary"><Icon name="save" className="text-base" /> {busy ? 'Saving…' : 'Save settings'}</button>
+            {saved && <span className="text-sm text-emerald-300">Saved.</span>}
+            {err && <span className="text-sm text-error">{err}</span>}
+          </div>
+        </form>
+
+        <div className="glass-card p-6 space-y-3">
+          <p className="section-label">API keys (BYOK)</p>
+          <p className="text-xs text-on-surface-variant">Per-client overrides for the agency defaults. Stored server-side; only the last 4 digits are shown.</p>
+          {BYOK_PROVIDERS.map((p) => (
+            <div key={p} className="flex flex-wrap items-center gap-2">
+              <span className="w-28 shrink-0 font-mono text-xs uppercase tracking-[0.15em] text-on-surface-variant">{p}</span>
+              <input
+                type="password"
+                autoComplete="off"
+                name={`byok-${p}`}
+                value={keys[p] || ''}
+                onChange={(e) => setKeys({ ...keys, [p]: e.target.value })}
+                placeholder={savedProviders.has(p) ? '•••• saved — enter to replace' : 'Not set'}
+                className="input-field flex-1 min-w-[200px]"
+              />
+              <button onClick={() => saveKey(p)} disabled={!(keys[p] || '').trim()} className="btn-secondary px-3 py-2 text-xs">Save</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Boundary>
+  )
+}
+
 // --- page -------------------------------------------------------------------
 
 const SECTION_META = {
@@ -1338,6 +1546,8 @@ const SECTION_META = {
   drafts: { label: 'Content', title: 'Drafts', desc: 'AI-generated content, from queued to published.' },
   keywords: { label: 'Research', title: 'Keywords', desc: 'Opportunities scored by search volume and difficulty.' },
   prompts: { label: 'Config', title: 'Prompt Studio', desc: 'The instructions that drive AI generation, per content type.' },
+  images: { label: 'Creative', title: 'AI Images', desc: 'Generate on-brand images for content and social.' },
+  settings: { label: 'Workspace', title: 'Settings', desc: 'Brand voice, WordPress, competitors, API keys and plan.' },
   reports: { label: 'Audits', title: 'SEO / GEO Reports', desc: 'PageSpeed + AI-summarised site audits.' },
   analysis: { label: 'Strategy', title: 'Site Analysis', desc: 'What you rank for, and what to target next.' },
   knowledge: { label: 'Brand', title: 'Knowledge Base', desc: 'Brand voice + facts that feed every AI generation.' },
@@ -1383,6 +1593,8 @@ export default function SeoGeo() {
               {section === 'drafts' && <DraftsSection clientId={slug} />}
               {section === 'keywords' && <KeywordsSection clientId={slug} />}
               {section === 'prompts' && <PromptStudioSection clientId={slug} />}
+              {section === 'images' && <ImagesSection clientId={slug} />}
+              {section === 'settings' && <SettingsSection clientId={slug} />}
               {section === 'reports' && <ReportsSection clientId={slug} />}
               {section === 'analysis' && <AnalysisSection clientId={slug} />}
               {section === 'knowledge' && <KnowledgeBaseSection clientId={slug} />}

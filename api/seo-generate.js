@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       if (error) throw error
       const { inngest } = await import('./_inngestApp.js')
       await inngest.send({
-        name: 'content/generate.requested',
+        name: 'mc/content.generate.requested',
         data: { clientId, contentType, topic, draftId: data.id },
       })
       res.status(202).json({ draftId: data.id, async: true })

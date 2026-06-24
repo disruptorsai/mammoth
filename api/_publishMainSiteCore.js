@@ -51,35 +51,29 @@ function buildExcerpt(content) {
   return plain.slice(0, 160).trim() + (plain.length > 160 ? '…' : '')
 }
 
-// Resolve a hero image (a fully-qualified PUBLIC URL the main site's <img src>
-// can load). Order: (1) reuse a public URL already on the draft; otherwise
-// (2) generate one with OpenAI (gpt-image-1) and upload it to the main site's
-// public blog-images bucket. NEVER throws and is time-boxed — a missing or slow
-// image must not block (or fail) the publish; it just publishes without a hero.
-async function resolveFeaturedImage({ env, site, draft, slug }) {
-  const existing = draft.image_storage_path
-  if (existing && /^https?:\/\//i.test(existing)) return existing
+// A blog-header image prompt derived from the draft's subject matter.
+export function buildImagePrompt(draft) {
+  const subject = (buildExcerpt(draft.humanized || draft.original || '') || draft.topic || '').slice(0, 200)
+  return (
+    `Create a modern, professional blog header image representing: ${subject}. ` +
+    'Clean, modern aesthetic aligned with AI, marketing, and technology. ' +
+    'High quality, suitable for a business blog header. No text or words in the image.'
+  )
+}
 
-  if (env.MAIN_SITE_GENERATE_IMAGE === '0') return null
+// Generate an image with OpenAI (gpt-image-1) and upload it to a PUBLIC bucket
+// on the main site, returning its public URL. Time-boxed; returns null on any
+// failure so callers can decide whether that's fatal.
+export async function generateAndUploadImage({ env, site, prompt, path }) {
   if (!env.OPENAI_API_KEY) return null
-
   try {
-    const subject = (buildExcerpt(draft.humanized || draft.original || '') || draft.topic || '').slice(0, 200)
-    const prompt =
-      `Create a modern, professional blog header image representing: ${subject}. ` +
-      'Clean, modern aesthetic aligned with AI, marketing, and technology. ' +
-      'High quality, suitable for a business blog header. No text or words in the image.'
-
     const timeout = new Promise((resolve) => setTimeout(() => resolve(null), IMAGE_TIMEOUT_MS))
     const gen = await Promise.race([generateImage({ env, prompt }), timeout])
     if (!gen?.dataUrl) return null
-
     const b64 = gen.dataUrl.split(',')[1]
     if (!b64) return null
     const bytes = Buffer.from(b64, 'base64')
     const bucket = env.MAIN_SITE_IMAGE_BUCKET || DEFAULT_IMAGE_BUCKET
-    const path = `generated/${slug}.png`
-
     const up = await site.storage.from(bucket).upload(path, bytes, { contentType: 'image/png', upsert: true })
     if (up.error) return null
     const { data } = site.storage.from(bucket).getPublicUrl(path)
@@ -87,6 +81,17 @@ async function resolveFeaturedImage({ env, site, draft, slug }) {
   } catch {
     return null
   }
+}
+
+// Resolve a hero image (a fully-qualified PUBLIC URL the main site's <img src>
+// can load). Order: (1) reuse a public URL already on the draft (e.g. one the
+// user generated in the editor); otherwise (2) auto-generate one. NEVER throws
+// and is time-boxed — a missing or slow image must not block the publish.
+async function resolveFeaturedImage({ env, site, draft, slug }) {
+  const existing = draft.image_storage_path
+  if (existing && /^https?:\/\//i.test(existing)) return existing
+  if (env.MAIN_SITE_GENERATE_IMAGE === '0') return null
+  return generateAndUploadImage({ env, site, prompt: buildImagePrompt(draft), path: `generated/${slug}.png` })
 }
 
 export async function publishDraftToMainSite({ env, draftId }) {

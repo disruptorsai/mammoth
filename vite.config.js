@@ -4,6 +4,7 @@ import { generateDraft } from './api/_seoGenerateCore.js'
 import { researchKeyword, runSiteAnalysis, runSeoReport } from './api/_seoJobsCore.js'
 import { generateImage } from './api/_seoImageCore.js'
 import { publishDraftToMainSite } from './api/_publishMainSiteCore.js'
+import { generateDraftImage } from './api/_draftImageCore.js'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -152,8 +153,36 @@ export default defineConfig(({ mode }) => {
     },
   }
 
+  // Dev equivalent of api/draft-image.js — generates + attaches a featured
+  // image to a draft.
+  const draftImageDevApi = {
+    name: 'draft-image-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api/draft-image', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'method_not_allowed' }))
+          return
+        }
+        try {
+          let raw = ''
+          for await (const chunk of req) raw += chunk
+          const body = raw ? JSON.parse(raw) : {}
+          const result = await generateDraftImage({ env: GEN_ENV, draftId: body.draftId, prompt: body.prompt })
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(result))
+        } catch (e) {
+          res.statusCode = 502
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'image_failed', message: String(e?.message || e) }))
+        }
+      })
+    },
+  }
+
   return {
-    plugins: [react(), seoGenerateDevApi, seoJobDevApi, seoImageDevApi, publishMainSiteDevApi],
+    plugins: [react(), seoGenerateDevApi, seoJobDevApi, seoImageDevApi, publishMainSiteDevApi, draftImageDevApi],
     server: {
       port: 5173,
       open: true,

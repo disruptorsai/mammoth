@@ -437,6 +437,26 @@ export const requestKeywordResearch = (clientId, keyword) => postJob({ action: '
 export const requestSiteAnalysis = (clientId, domain) => postJob({ action: 'site', clientId, domain })
 export const requestSeoReport = (clientId, domain) => postJob({ action: 'report', clientId, domain })
 
+// Publish an approved DisruptorsMedia draft to the live marketing site
+// (disruptorsmedia.com). Runs server-side (api/publish-to-main-site.js, or the
+// vite dev middleware) so the main-site service-role key stays out of the
+// browser. Returns { id, slug, url } of the live post.
+export async function publishToMainSite(draftId) {
+  const res = await fetch('/api/publish-to-main-site', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ draftId }),
+  })
+  let body = null
+  try {
+    body = await res.json()
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok) throw new Error(body?.message || `Publish failed (${res.status}).`)
+  return body
+}
+
 // --- presentation helpers ---------------------------------------------------
 
 export function draftStatusStyle(status) {

@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { generateDraft } from './api/_seoGenerateCore.js'
 import { researchKeyword, runSiteAnalysis, runSeoReport } from './api/_seoJobsCore.js'
 import { generateImage } from './api/_seoImageCore.js'
+import { publishDraftToMainSite } from './api/_publishMainSiteCore.js'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -21,6 +22,12 @@ export default defineConfig(({ mode }) => {
     DATAFORSEO_DEFAULT_PASSWORD: env.DATAFORSEO_DEFAULT_PASSWORD || '',
     GOOGLE_PSI_KEY: env.GOOGLE_PSI_KEY || '',
     OPENAI_API_KEY: env.OPENAI_API_KEY || '',
+    // Main website publishing (DisruptorsMedia blog -> live site). Server-side
+    // only — the main-site service-role key never reaches the browser bundle.
+    MAIN_SITE_SUPABASE_URL: env.MAIN_SITE_SUPABASE_URL || '',
+    MAIN_SITE_SUPABASE_SERVICE_ROLE_KEY: env.MAIN_SITE_SUPABASE_SERVICE_ROLE_KEY || '',
+    MAIN_SITE_CLIENT_ID: env.MAIN_SITE_CLIENT_ID || '',
+    MAIN_SITE_PUBLIC_URL: env.MAIN_SITE_PUBLIC_URL || '',
   }
 
   // Dev equivalent of api/seo-generate.js — runs the generation core inline so
@@ -115,8 +122,36 @@ export default defineConfig(({ mode }) => {
     },
   }
 
+  // Dev equivalent of api/publish-to-main-site.js — publishes an approved
+  // DisruptorsMedia draft to the live marketing site's posts table.
+  const publishMainSiteDevApi = {
+    name: 'publish-main-site-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api/publish-to-main-site', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'method_not_allowed' }))
+          return
+        }
+        try {
+          let raw = ''
+          for await (const chunk of req) raw += chunk
+          const body = raw ? JSON.parse(raw) : {}
+          const result = await publishDraftToMainSite({ env: GEN_ENV, draftId: body.draftId })
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(result))
+        } catch (e) {
+          res.statusCode = 502
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'publish_failed', message: String(e?.message || e) }))
+        }
+      })
+    },
+  }
+
   return {
-    plugins: [react(), seoGenerateDevApi, seoJobDevApi, seoImageDevApi],
+    plugins: [react(), seoGenerateDevApi, seoJobDevApi, seoImageDevApi, publishMainSiteDevApi],
     server: {
       port: 5173,
       open: true,

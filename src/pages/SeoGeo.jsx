@@ -27,6 +27,7 @@ import {
   saveDraftHumanized,
   setDraftStatus,
   publishToMainSite,
+  generateDraftImage,
   addApproval,
   fetchApprovals,
   importDraft,
@@ -1208,6 +1209,9 @@ function DraftEditor({ draftId, onBack }) {
   const [note, setNote] = useState('')
   const [preview, setPreview] = useState(false)
   const [liveUrl, setLiveUrl] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [imagePrompt, setImagePrompt] = useState('')
+  const [imageBusy, setImageBusy] = useState(false)
   const toast = useToastShow()
 
   // "Publish to main website" is only for the DisruptorsMedia client, and only
@@ -1230,8 +1234,27 @@ function DraftEditor({ draftId, onBack }) {
     }
   }
 
+  async function generateImage() {
+    setImageBusy(true)
+    try {
+      const { url } = await generateDraftImage(draftId, imagePrompt.trim() || undefined)
+      setImageUrl(url)
+      await reload()
+      toast('Featured image generated', 'image')
+    } catch (e) {
+      toast(String(e?.message || e), 'error')
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
   useEffect(() => {
-    if (draft) setText(draft.humanized ?? draft.original ?? '')
+    if (draft) {
+      setText(draft.humanized ?? draft.original ?? '')
+      // Show an already-attached public image (http URL); ignore legacy non-URL paths.
+      const img = draft.image_storage_path
+      setImageUrl(img && /^https?:\/\//i.test(img) ? img : '')
+    }
   }, [draft])
 
   async function save() {
@@ -1334,6 +1357,29 @@ function DraftEditor({ draftId, onBack }) {
                   <p className="text-xs text-on-surface-variant">
                     Publish this draft to disruptorsmedia.com. It goes live immediately. Re-publishing updates the same post.
                   </p>
+
+                  {/* Featured image — generate one to attach as the post hero. */}
+                  <div className="space-y-2 rounded-lg border border-outline p-3">
+                    <p className="text-xs font-medium">Featured image</p>
+                    {imageUrl ? (
+                      <img src={imageUrl} alt="Featured" className="aspect-video w-full rounded-md object-cover" loading="lazy" />
+                    ) : (
+                      <p className="text-xs text-on-surface-variant">
+                        No image yet. Generate one, or publish without it.
+                      </p>
+                    )}
+                    <input
+                      value={imagePrompt}
+                      onChange={(e) => setImagePrompt(e.target.value)}
+                      placeholder="Image prompt (optional — defaults to the topic)"
+                      className="input-field text-xs"
+                    />
+                    <button onClick={generateImage} disabled={imageBusy} className="btn-secondary w-full">
+                      <Icon name={imageBusy ? 'progress_activity' : 'image'} className={`text-base ${imageBusy ? 'animate-spin' : ''}`} />
+                      {imageBusy ? 'Generating…' : imageUrl ? 'Regenerate image' : 'Generate image'}
+                    </button>
+                  </div>
+
                   <button
                     onClick={publishMainSite}
                     disabled={busy || !isApproved}

@@ -160,7 +160,7 @@ export async function fetchDraft(id) {
   if (!isSupabaseConfigured) return null
   const { data, error } = await supabase
     .from('content_drafts')
-    .select('id,client_id,content_type,topic,original,humanized,status,model,cost_cents,scheduled_at,wp_post_url,created_at,updated_at')
+    .select('id,client_id,content_type,topic,original,humanized,status,model,cost_cents,scheduled_at,wp_post_url,image_storage_path,created_at,updated_at')
     .eq('id', id)
     .single()
   if (error) throw error
@@ -454,6 +454,26 @@ export async function publishToMainSite(draftId) {
     /* fall through */
   }
   if (!res.ok) throw new Error(body?.message || `Publish failed (${res.status}).`)
+  return body
+}
+
+// Generate a featured/hero image for a draft and attach it (returns { url }).
+// Server-side (api/draft-image.js or the vite dev middleware): creates the image
+// with OpenAI and uploads it to the main site's public bucket. Optional `prompt`
+// overrides the auto-derived one.
+export async function generateDraftImage(draftId, prompt) {
+  const res = await fetch('/api/draft-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ draftId, prompt }),
+  })
+  let body = null
+  try {
+    body = await res.json()
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok) throw new Error(body?.message || `Image generation failed (${res.status}).`)
   return body
 }
 

@@ -28,6 +28,8 @@ export default defineConfig(({ mode }) => {
     MAIN_SITE_SUPABASE_SERVICE_ROLE_KEY: env.MAIN_SITE_SUPABASE_SERVICE_ROLE_KEY || '',
     MAIN_SITE_CLIENT_ID: env.MAIN_SITE_CLIENT_ID || '',
     MAIN_SITE_PUBLIC_URL: env.MAIN_SITE_PUBLIC_URL || '',
+    MAIN_SITE_IMAGE_BUCKET: env.MAIN_SITE_IMAGE_BUCKET || '',
+    MAIN_SITE_GENERATE_IMAGE: env.MAIN_SITE_GENERATE_IMAGE || '',
   }
 
   // Dev equivalent of api/seo-generate.js — runs the generation core inline so

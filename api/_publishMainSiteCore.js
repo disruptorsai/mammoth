@@ -13,9 +13,12 @@
 //      status writeback). Optional: MAIN_SITE_CLIENT_ID, MAIN_SITE_PUBLIC_URL.
 import { createClient } from '@supabase/supabase-js'
 import { makeServiceClient } from './_seoGenerateCore.js'
+import { generateImage } from './_seoImageCore.js'
 
 const DEFAULT_CLIENT_ID = 'disruptors-media'
 const DEFAULT_PUBLIC_URL = 'https://disruptorsmedia.com'
+const DEFAULT_IMAGE_BUCKET = 'blog-images'
+const IMAGE_TIMEOUT_MS = 45000
 
 export function makeMainSiteClient(env) {
   const url = env.MAIN_SITE_SUPABASE_URL
@@ -48,13 +51,42 @@ function buildExcerpt(content) {
   return plain.slice(0, 160).trim() + (plain.length > 160 ? '…' : '')
 }
 
-// featured_image must be a fully-qualified PUBLIC URL (the hero <img src> loads
-// it directly). Only pass it through when the draft already holds a public URL;
-// a private storage path would render a broken image, so we omit it instead.
-function featuredImageUrl(draft) {
-  const p = draft.image_storage_path
-  if (p && /^https?:\/\//i.test(p)) return p
-  return null
+// Resolve a hero image (a fully-qualified PUBLIC URL the main site's <img src>
+// can load). Order: (1) reuse a public URL already on the draft; otherwise
+// (2) generate one with OpenAI (gpt-image-1) and upload it to the main site's
+// public blog-images bucket. NEVER throws and is time-boxed — a missing or slow
+// image must not block (or fail) the publish; it just publishes without a hero.
+async function resolveFeaturedImage({ env, site, draft, slug }) {
+  const existing = draft.image_storage_path
+  if (existing && /^https?:\/\//i.test(existing)) return existing
+
+  if (env.MAIN_SITE_GENERATE_IMAGE === '0') return null
+  if (!env.OPENAI_API_KEY) return null
+
+  try {
+    const subject = (buildExcerpt(draft.humanized || draft.original || '') || draft.topic || '').slice(0, 200)
+    const prompt =
+      `Create a modern, professional blog header image representing: ${subject}. ` +
+      'Clean, modern aesthetic aligned with AI, marketing, and technology. ' +
+      'High quality, suitable for a business blog header. No text or words in the image.'
+
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), IMAGE_TIMEOUT_MS))
+    const gen = await Promise.race([generateImage({ env, prompt }), timeout])
+    if (!gen?.dataUrl) return null
+
+    const b64 = gen.dataUrl.split(',')[1]
+    if (!b64) return null
+    const bytes = Buffer.from(b64, 'base64')
+    const bucket = env.MAIN_SITE_IMAGE_BUCKET || DEFAULT_IMAGE_BUCKET
+    const path = `generated/${slug}.png`
+
+    const up = await site.storage.from(bucket).upload(path, bytes, { contentType: 'image/png', upsert: true })
+    if (up.error) return null
+    const { data } = site.storage.from(bucket).getPublicUrl(path)
+    return data?.publicUrl || null
+  } catch {
+    return null
+  }
 }
 
 export async function publishDraftToMainSite({ env, draftId }) {
@@ -87,13 +119,16 @@ export async function publishDraftToMainSite({ env, draftId }) {
   if (!slug) throw new Error('Could not derive a slug from the draft topic.')
   const nowIso = new Date().toISOString()
 
+  // Hero image (best-effort, time-boxed — never blocks publishing).
+  const featuredImage = await resolveFeaturedImage({ env, site, draft, slug })
+
   const row = {
     title: draft.topic,
     slug,
     content, // Markdown (main site renders react-markdown + remark-gfm + rehype-raw)
     excerpt,
     content_type: 'blog',
-    featured_image: featuredImageUrl(draft),
+    featured_image: featuredImage,
     category: 'AI Marketing',
     read_time_minutes: Math.max(1, Math.ceil(words / 200)),
     is_published: true, // live immediately
@@ -107,6 +142,7 @@ export async function publishDraftToMainSite({ env, draftId }) {
       mammoth_draft_id: draft.id,
       model: draft.model || null,
       word_count: words,
+      featured_image_generated: !!featuredImage,
       published_at: nowIso,
     },
     updated_at: nowIso,

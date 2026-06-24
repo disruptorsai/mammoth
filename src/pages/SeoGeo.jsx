@@ -26,6 +26,7 @@ import {
   fetchDraft,
   saveDraftHumanized,
   setDraftStatus,
+  publishToMainSite,
   addApproval,
   fetchApprovals,
   importDraft,
@@ -1193,15 +1194,41 @@ const DRAFT_ACTIONS = [
   { key: 'resubmit', label: 'Resubmit', icon: 'replay', status: 'pending_approval', cls: 'btn-secondary' },
 ]
 
+// Which Mammoth client is wired to publish into the public marketing site.
+// Must match the main-site server config (MAIN_SITE_CLIENT_ID, default below).
+const MAIN_SITE_CLIENT_ID = 'disruptors-media'
+
 function DraftEditor({ draftId, onBack }) {
   const { data: draft, loading, error, reload } = useResource(() => fetchDraft(draftId), [draftId])
   const { data: trail, reload: reloadTrail } = useResource(() => fetchApprovals(draftId), [draftId])
+  const { activeClient } = useClient()
   const [text, setText] = useState('')
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [preview, setPreview] = useState(false)
+  const [liveUrl, setLiveUrl] = useState('')
   const toast = useToastShow()
+
+  // "Publish to main website" is only for the DisruptorsMedia client, and only
+  // once a draft is approved (Mammoth's approval is the gate — it goes live
+  // immediately on the public site).
+  const canPublishMainSite = activeClient?.id === MAIN_SITE_CLIENT_ID
+  const isApproved = draft && ['approved', 'published'].includes(draft.status)
+
+  async function publishMainSite() {
+    setBusy(true)
+    try {
+      const result = await publishToMainSite(draftId)
+      setLiveUrl(result.url)
+      await reload()
+      toast('Published to disruptorsmedia.com', 'rocket_launch')
+    } catch (e) {
+      toast(String(e?.message || e), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (draft) setText(draft.humanized ?? draft.original ?? '')
@@ -1299,6 +1326,35 @@ function DraftEditor({ draftId, onBack }) {
                   ))}
                 </div>
               </div>
+
+              {/* Publish to the public marketing site — DisruptorsMedia only. */}
+              {canPublishMainSite && (
+                <div className="glass-card p-6 space-y-3">
+                  <p className="section-label">Main website</p>
+                  <p className="text-xs text-on-surface-variant">
+                    Publish this draft to disruptorsmedia.com. It goes live immediately. Re-publishing updates the same post.
+                  </p>
+                  <button
+                    onClick={publishMainSite}
+                    disabled={busy || !isApproved}
+                    title={isApproved ? '' : 'Approve the draft first'}
+                    className="btn-primary w-full"
+                  >
+                    <Icon name="rocket_launch" className="text-base" /> {busy ? 'Publishing…' : 'Publish to main website'}
+                  </button>
+                  {!isApproved && <p className="text-xs text-on-surface-variant">Approve the draft to enable publishing.</p>}
+                  {liveUrl && (
+                    <a
+                      href={liveUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                    >
+                      <Icon name="open_in_new" className="text-base" /> View live post
+                    </a>
+                  )}
+                </div>
+              )}
 
               <div className="glass-card p-6">
                 <p className="section-label mb-3">Approval trail</p>

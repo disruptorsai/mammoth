@@ -97,7 +97,7 @@ export async function callClaude({ apiKey, model, system, user }) {
 // Generate a draft and persist it. If draftId is given, UPDATE that row
 // (created up-front as 'generating'); otherwise INSERT a new one.
 // Returns { draftId, model, costCents }.
-export async function generateDraft({ env, clientId, contentType = 'blog_post', topic, draftId = null, model = DEFAULT_MODEL }) {
+export async function generateDraft({ env, clientId, contentType = 'blog_post', topic, draftId = null, model = DEFAULT_MODEL, useKnowledgeBase = true }) {
   if (!clientId) throw new Error('clientId is required')
   if (!topic || !topic.trim()) throw new Error('topic is required')
   const apiKey = env.ANTHROPIC_API_KEY
@@ -123,7 +123,9 @@ export async function generateDraft({ env, clientId, contentType = 'blog_post', 
     brandName: clientRow.data?.name,
     contentType,
     voice: voiceRow.data,
-    kb: kbRow.data,
+    // The knowledge base is included by default; the caller can opt out
+    // (UI toggle) to generate from the topic alone. Brand voice stays on.
+    kb: useKnowledgeBase ? kbRow.data : null,
     customInstruction,
   })
 

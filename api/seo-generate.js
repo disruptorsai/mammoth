@@ -26,6 +26,8 @@ export default async function handler(req, res) {
   const clientId = body?.clientId
   const contentType = TYPES.includes(body?.contentType) ? body.contentType : 'blog_post'
   const topic = (body?.topic || '').trim()
+  // Knowledge base is on unless the caller explicitly passes false.
+  const useKnowledgeBase = body?.useKnowledgeBase !== false
   if (!clientId || !topic) {
     res.status(400).json({ error: 'missing_fields', message: 'clientId and topic are required.' })
     return
@@ -43,13 +45,13 @@ export default async function handler(req, res) {
       const { inngest } = await import('./_inngestApp.js')
       await inngest.send({
         name: 'mc/content.generate.requested',
-        data: { clientId, contentType, topic, draftId: data.id },
+        data: { clientId, contentType, topic, draftId: data.id, useKnowledgeBase },
       })
       res.status(202).json({ draftId: data.id, async: true })
       return
     }
 
-    const result = await generateDraft({ env: process.env, clientId, contentType, topic })
+    const result = await generateDraft({ env: process.env, clientId, contentType, topic, useKnowledgeBase })
     res.status(200).json({ ...result, async: false })
   } catch (e) {
     res.status(502).json({ error: 'generation_failed', message: String(e?.message || e) })

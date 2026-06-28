@@ -54,6 +54,7 @@ export default defineConfig(({ mode }) => {
             clientId: body.clientId,
             contentType: body.contentType,
             topic: body.topic,
+            useKnowledgeBase: body.useKnowledgeBase !== false,
           })
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/json')

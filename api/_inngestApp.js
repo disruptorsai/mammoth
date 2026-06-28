@@ -26,9 +26,9 @@ export const generateContent = inngest.createFunction(
     triggers: [{ event: 'mc/content.generate.requested' }],
   },
   async ({ event, step }) => {
-    const { clientId, contentType, topic, draftId } = event.data
+    const { clientId, contentType, topic, draftId, useKnowledgeBase = true } = event.data
     return step.run('generate-draft', () =>
-      generateDraft({ env: process.env, clientId, contentType, topic, draftId }),
+      generateDraft({ env: process.env, clientId, contentType, topic, draftId, useKnowledgeBase }),
     )
   },
 )

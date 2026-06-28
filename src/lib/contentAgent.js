@@ -400,11 +400,11 @@ export async function saveApiKey(clientId, provider, secret) {
 // Trigger native draft generation (api/seo-generate.js, or the vite dev
 // middleware). Resolves when the draft is created — synchronously in the inline
 // path, or as a 'generating' row in the Inngest async path (poll for completion).
-export async function requestDraftGeneration({ clientId, contentType, topic }) {
+export async function requestDraftGeneration({ clientId, contentType, topic, useKnowledgeBase = true }) {
   const res = await fetch('/api/seo-generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ clientId, contentType, topic }),
+    body: JSON.stringify({ clientId, contentType, topic, useKnowledgeBase }),
   })
   let body = null
   try {

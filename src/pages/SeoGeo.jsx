@@ -586,6 +586,9 @@ function DraftsSection({ clientId }) {
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState(null)
   const [selected, setSelected] = useState(null)
+  // Knowledge Base is ON by default — drafts are written using the client's
+  // brand voice, case studies, facts, etc. Users can turn it off per draft.
+  const [useKnowledgeBase, setUseKnowledgeBase] = useState(true)
   const toast = useToastShow()
 
   async function generate(e) {
@@ -594,7 +597,7 @@ function DraftsSection({ clientId }) {
     setGenerating(true)
     setGenError(null)
     try {
-      const res = await requestDraftGeneration({ clientId, contentType, topic: topic.trim() })
+      const res = await requestDraftGeneration({ clientId, contentType, topic: topic.trim(), useKnowledgeBase })
       setTopic('')
       await reload()
       if (res?.async) {
@@ -654,6 +657,47 @@ function DraftsSection({ clientId }) {
             {generating ? 'Generating…' : 'Generate draft'}
           </button>
         </div>
+
+        {/* Knowledge Base — ON by default, prominent so it's not missed. */}
+        <div
+          className={`mt-4 flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+            useKnowledgeBase ? 'border-primary/40 bg-primary/10' : 'border-outline bg-surface-container-low'
+          }`}
+        >
+          <Icon name={useKnowledgeBase ? 'auto_stories' : 'menu_book'} className={`mt-0.5 text-lg ${useKnowledgeBase ? 'text-primary' : 'text-on-surface-variant'}`} filled={useKnowledgeBase} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium">
+                Use Knowledge Base
+                <span className={`ml-2 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] ${useKnowledgeBase ? 'bg-primary/20 text-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+                  {useKnowledgeBase ? 'On' : 'Off'}
+                </span>
+              </p>
+              {/* Toggle switch — knob stays high-contrast in both states:
+                  dark knob on the gold ON track, light knob on the dark OFF track. */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={useKnowledgeBase}
+                aria-label="Use Knowledge Base"
+                onClick={() => setUseKnowledgeBase((v) => !v)}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${useKnowledgeBase ? 'bg-primary' : 'bg-outline'}`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full transition-transform ${
+                    useKnowledgeBase ? 'translate-x-6 bg-background' : 'translate-x-1 bg-on-surface'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              {useKnowledgeBase
+                ? "On by default — drafts are written using this client's Knowledge Base (case studies, brand guidelines, unique facts, FAQ) for accurate, on-brand content. Turn off to generate from the topic alone."
+                : 'Off — drafts will be generated from the topic only, ignoring the client Knowledge Base. Brand voice still applies.'}
+            </p>
+          </div>
+        </div>
+
         {genError && <p className="mt-3 text-sm text-error">{genError}</p>}
       </form>
 

@@ -3,6 +3,9 @@
   "framework": "vite",
   "buildCommand": "vite build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/*.js": { "maxDuration": 60 }
+  },
   "rewrites": [
     { "source": "/vista-mcp", "destination": "/api/vista-mcp" },
     { "source": "/claude-api", "destination": "/api/claude" },

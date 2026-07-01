@@ -28,6 +28,9 @@ import {
   setDraftStatus,
   publishToMainSite,
   generateDraftImage,
+  fetchBlogAutomation,
+  setBlogAutomation,
+  fetchBlogQueueStats,
   addApproval,
   fetchApprovals,
   importDraft,
@@ -87,6 +90,10 @@ const NavCtx = createContext(() => {})
 const ToastCtx = createContext(() => {})
 const useGo = () => useContext(NavCtx)
 const useToastShow = () => useContext(ToastCtx)
+
+// Which Mammoth client is wired to publish into the public marketing site.
+// Must match the main-site server config (MAIN_SITE_CLIENT_ID env, same default).
+const MAIN_SITE_CLIENT_ID = 'disruptors-media'
 
 const DRAFT_FILTERS = ['all', 'pending_approval', 'needs_revision', 'approved', 'published', 'failed']
 const DRAFT_TYPES = ['blog_post', 'service_page', 'faq', 'product_description', 'email']
@@ -576,6 +583,120 @@ function DashboardSection({ clientId }) {
 
 const ACTIVE_STATUSES = new Set(['generating', 'queued'])
 
+// Automated blog publishing status + on/off toggle — DisruptorsMedia only.
+// Reads blog_automation + blog_queue; degrades to a "not set up" hint until the
+// auto-blog SQL is applied.
+function AutomationCard({ clientId }) {
+  const { data, loading, reload } = useResource(
+    async () => {
+      const [auto, stats] = await Promise.all([fetchBlogAutomation(clientId), fetchBlogQueueStats(clientId)])
+      return { auto, stats }
+    },
+    [clientId],
+  )
+  const [busy, setBusy] = useState(false)
+  const toast = useToastShow()
+
+  const auto = data?.auto
+  const stats = data?.stats
+  const enabled = !!auto?.enabled
+  const setUp = !!auto || !!stats?.available
+
+  async function toggle() {
+    setBusy(true)
+    try {
+      await setBlogAutomation(clientId, !enabled)
+      await reload()
+      toast(!enabled ? 'Auto-publishing ON — posts go live Tue & Thu' : 'Auto-publishing paused', !enabled ? 'rocket_launch' : 'pause_circle')
+    } catch (e) {
+      toast(String(e?.message || e), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (loading) return null
+
+  if (!setUp) {
+    return (
+      <div className="glass-card p-5 border border-outline">
+        <div className="flex items-center gap-2">
+          <Icon name="schedule" className="text-on-surface-variant" />
+          <p className="section-label">Automated blog publishing</p>
+        </div>
+        <p className="mt-2 text-xs text-on-surface-variant">
+          Not set up yet — run the auto-blog SQL in Supabase to enable Tue/Thu publishing to disruptorsmedia.com.
+        </p>
+      </div>
+    )
+  }
+
+  const remaining = stats?.remaining ?? 0
+  const low = enabled && remaining > 0 && remaining <= 4
+  const lastRun = auto?.last_run_at ? new Date(auto.last_run_at).toLocaleDateString() : '—'
+
+  return (
+    <div className={`glass-card p-5 border ${enabled ? 'border-primary/40 bg-primary/5' : 'border-outline'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Icon name={enabled ? 'auto_awesome' : 'schedule'} filled={enabled} className={enabled ? 'text-primary' : 'text-on-surface-variant'} />
+          <div>
+            <p className="text-sm font-medium">
+              Automated blog publishing
+              <span className={`ml-2 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] ${enabled ? 'bg-primary/20 text-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+                {enabled ? 'On' : 'Off'}
+              </span>
+            </p>
+            <p className="text-xs text-on-surface-variant">Publishes to disruptorsmedia.com every Tuesday &amp; Thursday.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label="Automated blog publishing"
+          onClick={toggle}
+          disabled={busy}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${enabled ? 'bg-primary' : 'bg-outline'}`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full transition-transform ${enabled ? 'translate-x-6 bg-background' : 'translate-x-1 bg-on-surface'}`} />
+        </button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg border border-outline p-2">
+          <p className="text-lg font-semibold tabular-nums">{remaining}</p>
+          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">In queue</p>
+        </div>
+        <div className="rounded-lg border border-outline p-2">
+          <p className="text-lg font-semibold tabular-nums">{stats?.published ?? 0}</p>
+          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Published</p>
+        </div>
+        <div className="rounded-lg border border-outline p-2">
+          <p className="text-sm font-semibold">{lastRun}</p>
+          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Last run</p>
+        </div>
+      </div>
+
+      {stats?.next && (
+        <p className="mt-3 truncate text-xs text-on-surface-variant">
+          <span className="text-on-surface">Next up:</span> {stats.next.title}
+        </p>
+      )}
+      {low && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-300">
+          <Icon name="warning" className="text-sm" /> Queue running low ({remaining} left) — add more topics soon.
+        </p>
+      )}
+      {enabled && remaining === 0 && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-300">
+          <Icon name="info" className="text-sm" /> Queue empty — automation is paused until more topics are added.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function DraftsSection({ clientId }) {
   const [filter, setFilter] = useState('all')
   const { data, loading, error, reload } = useResource(() => fetchDrafts(clientId, filter), [clientId, filter])
@@ -630,6 +751,9 @@ function DraftsSection({ clientId }) {
 
   return (
     <div className="space-y-4">
+      {/* Automated blog publishing — DisruptorsMedia only. */}
+      {clientId === MAIN_SITE_CLIENT_ID && <AutomationCard clientId={clientId} />}
+
       {/* New draft */}
       <form onSubmit={generate} className="glass-card p-6">
         <div className="mb-4 flex items-baseline gap-2">
@@ -1238,10 +1362,6 @@ const DRAFT_ACTIONS = [
   { key: 'reject', label: 'Reject', icon: 'cancel', status: 'failed', cls: 'btn-secondary' },
   { key: 'resubmit', label: 'Resubmit', icon: 'replay', status: 'pending_approval', cls: 'btn-secondary' },
 ]
-
-// Which Mammoth client is wired to publish into the public marketing site.
-// Must match the main-site server config (MAIN_SITE_CLIENT_ID, default below).
-const MAIN_SITE_CLIENT_ID = 'disruptors-media'
 
 function DraftEditor({ draftId, onBack }) {
   const { data: draft, loading, error, reload } = useResource(() => fetchDraft(draftId), [draftId])

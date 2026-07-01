@@ -5,6 +5,7 @@ import { researchKeyword, runSiteAnalysis, runSeoReport } from './api/_seoJobsCo
 import { generateImage } from './api/_seoImageCore.js'
 import { publishDraftToMainSite } from './api/_publishMainSiteCore.js'
 import { generateDraftImage } from './api/_draftImageCore.js'
+import { runAutoBlog } from './api/_autoBlogCore.js'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -182,8 +183,37 @@ export default defineConfig(({ mode }) => {
     },
   }
 
+  // Dev equivalent of api/cron-blog.js — runs the auto-blog job inline so it can
+  // be tested under `npm run dev` (no secret check locally; pass {force:true} to
+  // bypass the enabled toggle).
+  const cronBlogDevApi = {
+    name: 'cron-blog-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api/cron-blog', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'method_not_allowed' }))
+          return
+        }
+        try {
+          let raw = ''
+          for await (const chunk of req) raw += chunk
+          const body = raw ? JSON.parse(raw) : {}
+          const result = await runAutoBlog({ env: GEN_ENV, force: body.force === true })
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(result))
+        } catch (e) {
+          res.statusCode = 502
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'auto_blog_failed', message: String(e?.message || e) }))
+        }
+      })
+    },
+  }
+
   return {
-    plugins: [react(), seoGenerateDevApi, seoJobDevApi, seoImageDevApi, publishMainSiteDevApi, draftImageDevApi],
+    plugins: [react(), seoGenerateDevApi, seoJobDevApi, seoImageDevApi, publishMainSiteDevApi, draftImageDevApi, cronBlogDevApi],
     server: {
       port: 5173,
       open: true,

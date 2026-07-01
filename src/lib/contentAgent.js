@@ -457,6 +457,72 @@ export async function publishToMainSite(draftId) {
   return body
 }
 
+// --- Auto-blog automation (DisruptorsMedia Tue/Thu publishing) ---------------
+// These read the blog_automation / blog_queue tables, which arrive with the
+// auto-blog migration. They degrade to null/zero until that SQL is applied so
+// the UI never crashes pre-setup.
+
+export async function fetchBlogAutomation(clientId) {
+  if (!isSupabaseConfigured) return null
+  try {
+    const { data, error } = await supabase
+      .from('blog_automation')
+      .select('client_id,enabled,posts_per_run,last_run_at')
+      .eq('client_id', clientId)
+      .maybeSingle()
+    if (error) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+export async function setBlogAutomation(clientId, enabled) {
+  const { error } = await supabase
+    .from('blog_automation')
+    .upsert({ client_id: clientId, enabled, updated_at: new Date().toISOString() }, { onConflict: 'client_id' })
+  if (error) {
+    // Friendly message when the table isn't there yet (pre-migration).
+    if (/relation .*blog_automation.* does not exist|could not find the table/i.test(error.message)) {
+      throw new Error('Auto-blog isn’t set up yet — run the auto-blog SQL in Supabase first.')
+    }
+    throw error
+  }
+}
+
+// Queue stats for the automation card: how many topics remain, what's next up,
+// and how many have been published.
+export async function fetchBlogQueueStats(clientId) {
+  const empty = { available: false, remaining: 0, published: 0, generating: 0, next: null }
+  if (!isSupabaseConfigured) return empty
+  try {
+    const [remaining, published, generating, next] = await Promise.all([
+      supabase.from('blog_queue').select('*', { count: 'exact', head: true }).eq('client_id', clientId).eq('status', 'queued'),
+      supabase.from('blog_queue').select('*', { count: 'exact', head: true }).eq('client_id', clientId).eq('status', 'published'),
+      supabase.from('blog_queue').select('*', { count: 'exact', head: true }).eq('client_id', clientId).eq('status', 'generating'),
+      supabase
+        .from('blog_queue')
+        .select('title,primary_keyword,cluster')
+        .eq('client_id', clientId)
+        .eq('status', 'queued')
+        .order('priority', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ])
+    if (remaining.error) return empty
+    return {
+      available: true,
+      remaining: remaining.count ?? 0,
+      published: published.count ?? 0,
+      generating: generating.count ?? 0,
+      next: next.data ?? null,
+    }
+  } catch {
+    return empty
+  }
+}
+
 // Generate a featured/hero image for a draft and attach it (returns { url }).
 // Server-side (api/draft-image.js or the vite dev middleware): creates the image
 // with OpenAI and uploads it to the main site's public bucket. Optional `prompt`

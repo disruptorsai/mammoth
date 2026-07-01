@@ -94,7 +94,7 @@ async function resolveFeaturedImage({ env, site, draft, slug }) {
   return generateAndUploadImage({ env, site, prompt: buildImagePrompt(draft), path: `generated/${slug}.png` })
 }
 
-export async function publishDraftToMainSite({ env, draftId }) {
+export async function publishDraftToMainSite({ env, draftId, primaryKeyword = '', secondaryKeywords = [] }) {
   if (!draftId) throw new Error('draftId is required')
   const allowedClient = env.MAIN_SITE_CLIENT_ID || DEFAULT_CLIENT_ID
   const publicBase = (env.MAIN_SITE_PUBLIC_URL || DEFAULT_PUBLIC_URL).replace(/\/$/, '')
@@ -140,6 +140,9 @@ export async function publishDraftToMainSite({ env, draftId }) {
     published_at: nowIso,
     seo_title: draft.topic,
     seo_description: excerpt,
+    // SEO keyword targeting (populated by the auto-blog cron from the queue).
+    primary_keyword: primaryKeyword || null,
+    secondary_keywords: secondaryKeywords?.length ? secondaryKeywords : null,
     approval_status: 'approved',
     auto_generated: true,
     generation_metadata: {
@@ -173,8 +176,8 @@ export async function publishDraftToMainSite({ env, draftId }) {
 // approval_status CHECK constraint), retry once with only the core fields.
 async function upsertPost(site, row) {
   let res = await site.from('posts').upsert(row, { onConflict: 'slug' }).select('id, slug').single()
-  if (res.error && /approval_status|generation_metadata|auto_generated|content_type|featured_image/i.test(res.error.message)) {
-    const { approval_status, auto_generated, generation_metadata, featured_image, content_type, ...core } = row
+  if (res.error && /approval_status|generation_metadata|auto_generated|content_type|featured_image|primary_keyword|secondary_keywords/i.test(res.error.message)) {
+    const { approval_status, auto_generated, generation_metadata, featured_image, content_type, primary_keyword, secondary_keywords, ...core } = row
     res = await site.from('posts').upsert(core, { onConflict: 'slug' }).select('id, slug').single()
   }
   if (res.error) throw new Error(`Main-site publish failed: ${res.error.message}`)
